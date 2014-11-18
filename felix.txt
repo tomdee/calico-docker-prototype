@@ -1,0 +1,10 @@
+[felix linux-esx3-072]
+ip=172.18.197.87
+host=linux-esx3-072
+
+[felix linux-esx3-073]
+ip=172.18.197.88
+host=linux-esx3-073
+
+[acl]
+ip=172.18.197.87
