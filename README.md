@@ -1,5 +1,8 @@
 # Calico docker prototype
-This prototype demonstrates Calico running in a docker environment.
+This prototype demonstrates Calico running in a docker environment. If you do try using it, let me know how you get on by email (or just add a comment to the wiki).
+
+Peter White (`peter.white@metaswitch.com`)
+
 
 ## What the prototype covers
 The prototype is a demonstration / proof of concept of several things.
@@ -27,7 +30,14 @@ The installation assumes two servers with IP addresses 172.18.197.87 and 172.18.
 #### Prerequisites
 You'll need at least one host, and ideally two (or more).
 
-+ Various docker images are provided - load them on your hosts using `docker load` as usual.
++ Three docker images are provided - load them on your hosts using `docker load` as usual.
+
+    [felix:bird](https://s3-eu-west-1.amazonaws.com/calico-docker-prototype/images/felix_bird)
+
+    [felix:plugin](https://s3-eu-west-1.amazonaws.com/calico-docker-prototype/images/felix_plugin)
+
+    [felix:v3](https://s3-eu-west-1.amazonaws.com/calico-docker-prototype/images/felix_v3)
+
 
 + This assumes a CoreOS installation. It probably works on other installations too.
 
@@ -72,4 +82,21 @@ The plugin would normally be the part of the orchestration that informs the Cali
     cd /opt/plugin
     python plugin.py
 
+
+## Verifying that it works
+Naturally, you'll want to check that it's doing what you expect. Good things to look at include the following.
+
+* `ip route` shows you the routes on the servers. There should be one for each virtual interface (on both servers).
+
+* `iptables` shows a whole range of rules controlling traffic.
+
+* If the containers that you are installing are a little more sophisticated than the examples above, they will be able to open connections to each other (TCP / UDP / ICMP).
+
+If things do go wrong (and it can be a little fiddly setting it up), then you can either just try restarting some or all the processes or take a look at the logs.
+
+* Logs from Felix and the ACL Manager are in `/var/log/calico/`.
+
+* The plugin reports to screen what it is doing, and if it hangs something is wrong.
+
+* Bird has its own logging too.
 
