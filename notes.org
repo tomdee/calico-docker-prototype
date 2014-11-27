@@ -161,3 +161,65 @@ where IPADDR is your IP address. Then restart the plugin.
 
 Note that there is no automatic way to tidy up all these plugins - there may be issues.
 
+* Doing the same thing on GCE
+** Getting started
+Created account, then two instances. External IP first.
+
+instance-1   130.211.60.95    10.240.254.171
+instance-2   130.211.50.98    10.240.58.221
+
+ubuntu-3     104.155.207.11   10.240.164.132
+ubuntu-4     130.211.190.132  10.240.227.36
+
+Log in as peter_white_metaswitch_com
+
+Copy up data as 
+  for i in 130.211.50.98 130.211.60.95; do pscp -r * peter_white_metaswitch_com@130.211.50.98:/tmp/data; done
+
+Useful command to nuke containers :
+  docker ps -a | awk '{print $1}' | grep -v CONTAINER | xargs -n 1 docker rm -f
+
+
+Build images as follows (after copying the bird, plugin and felix directories to the box).
+
+  sudo docker build -t "felix:bird" /tmp/data/bird 
+  sudo docker build -t "felix:plugin" /tmp/data/plugin
+  sudo docker build -t "felix:felix" /tmp/data/felix
+
+As root :
+  modprobe ip6_tables
+  mkdir /var/log/calico
+  mkdir /var/run/netns
+  mkdir -p /opt/plugin/data
+
+Run things as follows.
+
+  On instance-1 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t felix:bird /usr/bin/run_bird bird1.conf
+
+  On instance-2 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t felix:bird /usr/bin/run_bird bird2.conf
+
+And Felix:
+
+  On instance-1 :
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t felix:felix calico-felix --config-file=/etc/calico/felix.cfg
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t felix:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
+
+  On instance-2 :
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t felix:felix calico-felix --config-file=/etc/calico/felix.cfg
+
+Copy across the basic config (on instance 1 only):
+  cp /tmp/data/felix.txt /opt/plugin/data/
+
+Kick off a creation or two on instance 1 as root:
+  bash /tmp/data/create_container.sh 192.168.0.2
+
+Kick off plugin (on instance 1 only):
+  docker run -i -t --privileged=true --name="plugin" --net=host -v /opt/plugin:/opt/plugin felix:plugin /bin/bash
+
+Then on that location :
+  python /opt/scripts/plugin.py ep
+  python /opt/scripts/plugin.py network
+
+

@@ -1,0 +1,4 @@
+#! /bin/bash
+# Script to start bird, then never return (as bird runs daemonised).
+# Single argument is config file; must be in /etc/bird/
+/usr/sbin/bird -c /etc/bird/$1 -s /var/run/bird.ctl && sleep infinity

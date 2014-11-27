@@ -7,6 +7,22 @@ import sys
 import time
 import zmq
 
+args = sys.argv
+
+if len(sys.argv) != 2:
+    print "Not enough command line args - need one arg, endpoint or network"
+    exit(1)
+
+if sys.argv[1].startswith("e") or sys.argv[0].startswith("E"):
+    endpoint = True
+    print "Doing endpoint API only"
+elif sys.argv[1].startswith("n") or sys.argv[0].startswith("N"):
+    endpoint = False
+    print "Doing network API only"
+else:
+    print "Need one arg, endpoint or network"
+    exit(1)
+
 zmq_context = zmq.Context()
 
 # Logging
@@ -40,6 +56,14 @@ eps_by_host = dict()
 felix_ip    = dict()
 acl_ip      = None
 
+def strip(data):
+    # Remove all from the first dot onwards
+    index = data.find(".")
+    if index > 0:
+        data = data[0:index]
+    return data
+    
+
 def load_files(config_file):
     """
     Load a config file with the data in it. Each section is an endpoint.
@@ -58,7 +82,9 @@ def load_files(config_file):
             id   = items['id']
             mac  = items['mac']
             ip   = items['ip']
-            host = items['host']
+
+            # Remove anything after the dot in host.
+            host = strip(items['host'])
 
             if not host in eps_by_host:
                 eps_by_host[host] = set()
@@ -71,7 +97,7 @@ def load_files(config_file):
             log.debug("Found ACL manager at %s" % (acl_ip))
         elif section.lower().startswith("felix"):
             ip = items['ip']
-            host = items['host']
+            host = strip(items['host'])
             felix_ip[host] = ip
             log.debug("Found configured Felix %s at %s" % (host, ip))
 
@@ -86,15 +112,13 @@ def do_ep_api():
     #* resync from every Felix, so it may take a while (if a Felix is down,  *#
     #* we have to wait for connection timeout, which can take 30s).          *#
     #*************************************************************************#
-    count = 0
-
-    while count < len(felix_ip):
+    while True:
         data   = resync_socket.recv()
         fields = json.loads(data)
         log.debug("Got %s EP msg : %s" % (fields['type'], fields))
         if fields['type'] == "RESYNCSTATE":
             resync_id = fields['resync_id']
-            host      = fields['hostname']
+            host      = strip(fields['hostname'])
             if host in eps_by_host:
                 eps = eps_by_host[host]
             else:
@@ -105,6 +129,7 @@ def do_ep_api():
                    "type": fields['type'],
                    "endpoint_count": str(len(eps))}
             resync_socket.send(json.dumps(rsp))
+            log.debug("Sending %s EP msg : %s" % (fields['type'], rsp))
 
             create_socket = zmq_context.socket(zmq.REQ)
             create_socket.connect("tcp://%s:9902" % felix_ip[host])
@@ -122,8 +147,6 @@ def do_ep_api():
                 create_socket.send(json.dumps(msg))
                 create_socket.recv()
                 log.debug("Got endpoint created response")
-
-            count += 1
         else:
             rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
             resync_socket.send(json.dumps(rsp))
@@ -202,10 +225,11 @@ def main():
     # Load files.
     load_files("/opt/plugin/data.txt")
 
-    # Do what we need to over the endpoint API.
-    do_ep_api()
-
-    # Do what we need to over the network API.
-    do_network_api()
+    if endpoint:
+        # Do what we need to over the endpoint API.
+        do_ep_api()
+    else:
+        # Do what we need to over the network API.
+        do_network_api()
       
 main()
