@@ -168,8 +168,8 @@ Created account, then two instances. External IP first.
 instance-1   130.211.60.95    10.240.254.171
 instance-2   130.211.50.98    10.240.58.221
 
-ubuntu-3     104.155.207.11   10.240.164.132
-ubuntu-4     130.211.190.132  10.240.227.36
+host-1       104.155.215.83   10.240.102.109
+host-2       23.251.152.103   10.240.40.50
 
 Log in as peter_white_metaswitch_com
 
@@ -218,8 +218,35 @@ Kick off a creation or two on instance 1 as root:
 Kick off plugin (on instance 1 only):
   docker run -i -t --privileged=true --name="plugin" --net=host -v /opt/plugin:/opt/plugin felix:plugin /bin/bash
 
+Or manually :
+  docker run -d --privileged=true --name="ep_plugin" --net=host -v /opt/plugin:/opt/plugin felix:plugin python /opt/scripts/plugin.py ep
+
+
 Then on that location :
   python /opt/scripts/plugin.py ep
   python /opt/scripts/plugin.py network
 
 
+** Trying some cunning routing stuff
+Somehow during this, instance-1 got reconfigured. Servers are now the following.
+
+instance-1   130.211.110.91   10.240.254.171
+instance-2   130.211.50.98    10.240.58.221
+
+host-1       104.155.215.83   10.240.102.109
+host-2       23.251.152.103   10.240.40.50
+
+Install gcloud as here. 
+https://cloud.google.com/compute/docs/gcloud-compute/
+
+To get it to work and set up credentials :
+https://cloud.google.com/sdk/gcloud/reference/auth/activate-service-account
+
+  gcloud auth login
+
+Finally, set up some routing to see what happens :
+  gcloud compute routes create ip-192-168-0-3 --next-hop-instance instance-1 --next-hop-instance-zone europe-west1-b --destination-range 192.168.0.3/32
+
+
+And now some useful commands
+  docker run -i -t --privileged=true --name="bird" --net=host felix:bird

@@ -92,9 +92,6 @@ def load_files(config_file):
             all_ips.add(ip)
             log.debug("Found configured endpoint %s (host=%s, mac=%s, ip=%s)" %
                       (id, host, mac, ip))
-        elif section.lower().startswith("acl"):
-            acl_ip = items['ip']
-            log.debug("Found ACL manager at %s" % (acl_ip))
         elif section.lower().startswith("felix"):
             ip = items['ip']
             host = strip(items['host'])

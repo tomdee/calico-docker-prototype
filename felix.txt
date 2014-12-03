@@ -6,5 +6,11 @@ host=instance-1
 ip=10.240.58.221
 host=instance-2
 
-[acl]
-ip=10.240.254.171
+[felix host-1]
+ip=10.240.102.109
+host=host-1
+
+[felix host-2]
+ip=10.240.40.50
+host=host-2
+

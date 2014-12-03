@@ -13,7 +13,7 @@ RUN apt-get update
 RUN apt-get dist-upgrade -y
 RUN apt-get install -y calico-felix calico-acl-manager
 
-RUN sed -i 's/controller/10.240.254.171/' /etc/calico/felix.cfg
-RUN sed -i 's/controller/10.240.254.171/' /etc/calico/acl_manager.cfg
+RUN sed -i 's/controller/10.240.102.109/' /etc/calico/felix.cfg
+RUN sed -i 's/controller/10.240.102.109/' /etc/calico/acl_manager.cfg
 
 RUN apt-get install -y xtables-addons-common
