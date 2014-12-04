@@ -3,6 +3,7 @@
 import ConfigParser
 import json
 import logging
+import logging.handlers
 import sys
 import time
 import zmq
@@ -16,9 +17,11 @@ if len(sys.argv) != 2:
 if sys.argv[1].startswith("e") or sys.argv[0].startswith("E"):
     endpoint = True
     print "Doing endpoint API only"
+    logfile = "/var/log/calico/plugin_ep.log"
 elif sys.argv[1].startswith("n") or sys.argv[0].startswith("N"):
     endpoint = False
     print "Doing network API only"
+    logfile = "/var/log/calico/plugin_net.log"
 else:
     print "Need one arg, endpoint or network"
     exit(1)
@@ -37,15 +40,25 @@ handler.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
+handler = logging.handlers.TimedRotatingFileHandler(logfile,
+                                                    when='D',
+                                                    backupCount=10)
+handler.setLevel(logging.DEBUG)
+handler.setFormatter(formatter)
+log.addHandler(handler)
+
+config_path = "/opt/plugin/data.txt"
+
 
 class Endpoint:
     """
     Endpoint as seen by the plugin. Enough to know what to put in an endpoint created message.
     """
-    def __init__(self, id, mac, ip):
+    def __init__(self, id, mac, ip, group):
         self.id = id
         self.mac = mac
         self.ip = ip
+        self.group = group
 
 
 #*****************************************************************************#
@@ -54,7 +67,7 @@ class Endpoint:
 all_ips     = set()
 eps_by_host = dict()
 felix_ip    = dict()
-acl_ip      = None
+all_groups  = dict()
 
 def strip(data):
     # Remove all from the first dot onwards
@@ -71,6 +84,14 @@ def load_files(config_file):
     parser = ConfigParser.ConfigParser()
     parser.read(config_file)
 
+    log.debug("Read config from %s" % config_file)
+
+    # Clear all of the data structures
+    all_ips.clear()
+    eps_by_host.clear()
+    felix_ip.clear()
+    all_groups.clear()
+
     # Build up the list of sections.
     for section in parser.sections():
         items = dict(parser.items(section))
@@ -79,24 +100,31 @@ def load_files(config_file):
             #* Endpoint. Note that we just fall over if there are missing    *#
             #* lines.                                                        *#
             #*****************************************************************#
-            id   = items['id']
-            mac  = items['mac']
-            ip   = items['ip']
+            id = items['id']
+            mac = items['mac']
+            ip = items['ip']
+            group = items.get('group', 'default')
+
+            # Put this endpoint in a group.
+            if group not in all_groups:
+                all_groups[group] = dict()
+
+            all_groups[group][id] = [ip]
 
             # Remove anything after the dot in host.
             host = strip(items['host'])
 
             if not host in eps_by_host:
                 eps_by_host[host] = set()
-            eps_by_host[host].add(Endpoint(id, mac, ip))
+            eps_by_host[host].add(Endpoint(id, mac, ip, group))
             all_ips.add(ip)
-            log.debug("Found configured endpoint %s (host=%s, mac=%s, ip=%s)" %
-                      (id, host, mac, ip))
+            log.debug("  Found configured endpoint %s (host=%s, mac=%s, ip=%s, group=%s)" %
+                      (id, host, mac, ip, group))
         elif section.lower().startswith("felix"):
             ip = items['ip']
             host = strip(items['host'])
             felix_ip[host] = ip
-            log.debug("Found configured Felix %s at %s" % (host, ip))
+            log.debug("  Found configured Felix %s at %s" % (host, ip))
 
 def do_ep_api():
     # Create both EP sockets
@@ -105,9 +133,9 @@ def do_ep_api():
     log.debug("Created EP socket for resync")
 
     #*************************************************************************#
-    #* Wait for a resync request, and send the response. We wait for a       *#
-    #* resync from every Felix, so it may take a while (if a Felix is down,  *#
-    #* we have to wait for connection timeout, which can take 30s).          *#
+    #* Wait for a resync request, and send the response. Note that Felix is  *#
+    #* expected to just send us a resync every now and then; it will do this *#
+    #* because it keeps timing out our connections.                          *#
     #*************************************************************************#
     while True:
         data   = resync_socket.recv()
@@ -115,7 +143,7 @@ def do_ep_api():
         log.debug("Got %s EP msg : %s" % (fields['type'], fields))
         if fields['type'] == "RESYNCSTATE":
             resync_id = fields['resync_id']
-            host      = strip(fields['hostname'])
+            host = strip(fields['hostname'])
             if host in eps_by_host:
                 eps = eps_by_host[host]
             else:
@@ -144,13 +172,18 @@ def do_ep_api():
                 create_socket.send(json.dumps(msg))
                 create_socket.recv()
                 log.debug("Got endpoint created response")
+
+            # We'll recreate this socket when we next need it.
+            create_socket.close()
         else:
+            # Keepalive. We are still here.
             rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
             resync_socket.send(json.dumps(rsp))
-  
-    # Tear down the resync_socket to allow faster restart.
-    resync_socket.close()
 
+        # Reload config file just in case, before we send all the data.
+        load_files(config_path)
+
+  
 def do_network_api():
     # Create the sockets
     rep_socket = zmq_context.socket(zmq.REP)
@@ -158,69 +191,74 @@ def do_network_api():
 
     pub_socket = zmq_context.socket(zmq.PUB)
     pub_socket.bind("tcp://*:9904")
-  
-    # ACL manager needs to send us a GETGROUPS request - wait for it.
-    got_groups = False
-    while not got_groups:
-        data   = rep_socket.recv()
-        fields = json.loads(data)
-        log.debug("Got %s network msg : %s" % (fields['type'], fields))
-        if fields['type'] == "GETGROUPS":
-            rsp = {"rc": "SUCCESS",
-                   "message": "Hooray",
-                   "type": fields['type']}
-            rep_socket.send(json.dumps(rsp))
-            got_groups = True
-        else:
-            # Heartbeat. Whatever.
-            rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
-            rep_socket.send(json.dumps(rsp))
-
-    # Tear down the rep_socket to allow faster restart.
-    rep_socket.close()
- 
-    # Now the PUB socket.
-    log.debug("Build data to publish")
-    members = dict()
-    for host in eps_by_host:
-        endpoints = eps_by_host[host]
-        for endpoint in endpoints:
-            members[endpoint.id] = [endpoint.ip]
-
-    rules = dict()
-
-    rule1 = {"group": "dummy_security_group",
-             "cidr": None,
-             "protocol": None,
-             "port": None}
-
-    rule2 = {"group": None,
-             "cidr": "0.0.0.0/0",
-             "protocol": None,
-             "port": None}
-
-    rules["inbound"] = [rule1]
-    rules["outbound"] = [rule1, rule2]
-    rules["inbound_default"] = "deny"
-    rules["outbound_default"] = "deny"
-    
-    data = {"type": "GROUPUPDATE",
-            "group": "dummy_security_group",
-            "rules": rules, # all outbound, inbound from SG
-            "members": members, # all endpoints
-            "issued": int(time.time() * 1000)}
 
     while True:
-        # Send the data over and over, until the ACL manager is listening.
-        log.debug("Sending data about all groups : %s", data)
-        pub_socket.send_multipart(['groups'.encode('utf-8'),
-                                   json.dumps(data).encode('utf-8')])
-        time.sleep(5)
+        #*********************************************************************#
+        #* We just hang around waiting until we get a request for all        *#
+        #* groups. If we do not get one within 15 seconds, we just send the  *#
+        #* data anyway. If we never receive anything (even a keepalive)      *#
+        #* we'll never send anything but that doesn't matter; if the ACL     *#
+        #* manager is there it will be sending either GETGROUPS or           *#
+        #* HEARTBEATs.                                                       *#
+        #*********************************************************************#
+        start = time.time()
+        got_groups = False
+        while not got_groups and (time.time() - start) < 15:
+            data   = rep_socket.recv()
+            fields = json.loads(data)
+            log.debug("Got %s network msg : %s" % (fields['type'], fields))
+            if fields['type'] == "GETGROUPS":
+                rsp = {"rc": "SUCCESS",
+                       "message": "Hooray",
+                       "type": fields['type']}
+                rep_socket.send(json.dumps(rsp))
+                got_groups = True
+            else:
+                # Heartbeat. Whatever.
+                rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
+                rep_socket.send(json.dumps(rsp))
+
+        # Reload config file just in case, before we send all the data.
+        load_files(config_path)
+
+        # Now send all the data we have on the PUB socket.
+        log.debug("Build data to publish")
+
+        for group in all_groups:
+            members = all_groups[group]
+
+            rules = dict()
+
+            rule1 = {"group": group,
+                     "cidr": None,
+                     "protocol": None,
+                     "port": None}
+
+            rule2 = {"group": None,
+                     "cidr": "0.0.0.0/0",
+                     "protocol": None,
+                     "port": None}
+
+            rules["inbound"] = [rule1]
+            rules["outbound"] = [rule1, rule2]
+            rules["inbound_default"] = "deny"
+            rules["outbound_default"] = "deny"
+
+            data = {"type": "GROUPUPDATE",
+                    "group": group,
+                    "rules": rules, # all outbound, inbound from group
+                    "members": members, # all endpoints
+                    "issued": int(time.time() * 1000)}
+
+            # Send the data over and over, until the ACL manager is listening.
+            log.debug("Sending data about group %s : %s" % (group, data))
+            pub_socket.send_multipart(['groups'.encode('utf-8'),
+                                       json.dumps(data).encode('utf-8')])
 
 
 def main():
     # Load files.
-    load_files("/opt/plugin/data.txt")
+    load_files(config_path)
 
     if endpoint:
         # Do what we need to over the endpoint API.

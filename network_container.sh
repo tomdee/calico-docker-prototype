@@ -3,6 +3,7 @@
 echo "Networking an endpoint with container ID $1 and address $2"
 CID=$1
 IPADDR=$2
+GROUP=$3
 
 if [ "x$CID" = "x" ]
 then 
@@ -16,6 +17,12 @@ then
     exit
 fi
 
+if [ "x$GROUP" = "x" ]
+then 
+    echo "No group"
+    exit
+fi
+
 set -e
 
 NAME=`echo $IPADDR | sed 's/\./_/g'`
@@ -25,9 +32,11 @@ CPID=`docker inspect -f '{{.State.Pid}}' $CID`
 IFACE=tap${CID:0:11}
 echo "CID   = $CID"
 echo "CPID  = $CPID"
+echo "GROUP = $GROUP"
 echo "IFACE = $IFACE"
 
 # Provision the networking
+mkdir -p /var/run/netns
 ln -s /proc/$CPID/ns/net /var/run/netns/$CPID
 
 # Create the veth pair and move one end into container as eth0 :
@@ -45,11 +54,12 @@ ip netns exec $CPID ip route add default dev eth0
 MAC=`ip netns exec $CPID ip link show eth0 | grep ether | awk '{print $2}'`
 
 FILE=/opt/plugin/data/$NAME.txt
-echo "[endpoint $NAME]" >  $FILE 
-echo "id=$CID"    >> $FILE
-echo "ip=$IPADDR" >> $FILE
-echo "mac=$MAC"   >> $FILE
-echo "host=$HOSTNAME" >> $FILE
-echo              >> $FILE
+echo "[endpoint $NAME]" > $FILE
+echo "id=$CID"         >> $FILE
+echo "ip=$IPADDR"      >> $FILE
+echo "mac=$MAC"        >> $FILE
+echo "host=$HOSTNAME"  >> $FILE
+echo "group=$GROUP"    >> $FILE
+echo                   >> $FILE
 
 cat /opt/plugin/data/* > /opt/plugin/data.txt
