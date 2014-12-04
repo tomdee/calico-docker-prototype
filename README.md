@@ -141,7 +141,9 @@ If things do go wrong (and it can be a little fiddly setting it up), then you ca
 * Bird has its own logging too.
 
 ## Running bird under GCE
-There is no need to run bird with GCE, because the routing is through the GCE fabric anyway, but if you want to do so for testing or demonstration purposes, here is how.
+With the instructions and configuration as above, GCE’s underlying L3 fabric provides routing for the endpoint addresses between hosts without having to run a Calico driven BGP client such as bird. In such an environment, Calico's role is to manage ACLs (ensuring isolation of different groups of containers) and routing to each container within the host.
+
+However, to demonstrate the full Calico solution using the bird BGP client, you can do the following.
 
 * Unfortunately, `bird` refuses to accept routes where the default gateway is not in the same subnet as the local IP on the interface, and for GCE the local IP is always a /32. The way to resolve this is to add a route that convinces bird that the default gateway really is OK. Here's how to do that (where 10.240.40.50 is the IP of the server, and 10.240.0.1 is the gateway address; obviously change those for your deployment!). Note that you must do this on both hosts.
 
