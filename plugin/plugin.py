@@ -250,7 +250,7 @@ def do_network_api():
                     "members": members, # all endpoints
                     "issued": int(time.time() * 1000)}
 
-            # Send the data over and over, until the ACL manager is listening.
+            # Send the data to the ACL manager.
             log.debug("Sending data about group %s : %s" % (group, data))
             pub_socket.send_multipart(['groups'.encode('utf-8'),
                                        json.dumps(data).encode('utf-8')])
