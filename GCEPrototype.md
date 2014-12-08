@@ -67,13 +67,13 @@ The installation assumes two GCE hosts, each with a valid IP address.  You'll ne
 
         iptables -t nat -A POSTROUTING -s 192.168.0.0/16 ! -d 192.168.0.0/16 -j MASQUERADE
 
-4. Unfortunately, BIRD refuses to accept routes where the default gateway is not in the same subnet as the local IP on the interface, and for GCE the local IP is always a /32. The way to resolve this is to add a route that convinces BIRD that the default gateway really is valid. Here's how to do that (where 10.240.40.50 is the IP of the server, and 10.240.0.1 is the gateway address; obviously change those for your deployment!). Note that you must do this on both hosts.
+4. BIRD won't accept routes where the default gateway is not in the same subnet as the local IP on the interface, and for GCE the local IP is always a /32. The way to resolve this is to add a route that convinces BIRD that the default gateway really is valid. Here's how to do that (where 10.240.40.50 is the IP of the server, and 10.240.0.1 is the gateway address; obviously change those for your deployment!). Note that you must do this on both hosts.
 
         ip addr add 10.240.40.50 peer 10.240.0.1 dev ens4v1
 
     There's more on this situation here, in case you want to understand this further [http://marc.info/?l=bird-users&m=139809577125938&w=2](http://marc.info/?l=bird-users&m=139809577125938&w=2)
 
-5. So that BIRD is not just adding routes that have no effect (since they match the default route), we want to ban all traffic to the network that your endpoints are on. This unreachable route will be overridden by BIRD as the Calico Felix agent on each host is told about its endpoints and configures routes which are then distributed to the other host by BIRD.
+5. So that BIRD is not just adding routes that have no effect (since they match the default route), we want to ban all traffic to the network that your endpoints are on. This unreachable route will be overridden when endpoints are created; on each host, the Calico Felix agent will add the route locally which will then be picked up and distributed by the BIRD clients.
 
         ip route add unreachable 192.168.0.0/16
 
@@ -90,12 +90,12 @@ The installation assumes two GCE hosts, each with a valid IP address.  You'll ne
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
 
-3. On the first host (only) start the plugin running. The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config. Two instances are run, one for the network API and one for the Endpoint API. If you want more diagnostics, run them interactively from a bash container. *The plugin must run on the first server only.*
+3. On the first host (only) start the Calico plugin. 
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
-    The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config (which you will create shortly).
+    The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config. Two instances are run, one for the network API and one for the Endpoint API. If you want more diagnostics, run them interactively from a bash container. *The plugin must run on the first server only.*
     
 #### Create some container endpoints
 
@@ -112,6 +112,7 @@ Next create some test containers, and network them. You'll want to create contai
         sh /opt/demo/network_container.sh CID IP GROUP
 
     Here
+    
     * `CID` is the container ID as reported on the command line from `docker ps` (or from `docker run`).
     * `IP` is the IP address to assign.
     * `GROUP` is the name of the security group. In this prototype, each endpoint is in a single security group, and the other endpoints only have access to it if they are in the same security group. Names are arbitrary.
