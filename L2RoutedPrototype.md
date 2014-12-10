@@ -13,7 +13,7 @@ The installation assumes two servers with IP addresses that you'll need to updat
 3. Edit the IP addresses for the servers. These need to change in various places.
     + `felix.txt` at the root of the repository, which must have both IP addresses and hostnames (without qualification - up to the first dot) modified.
     + The Dockerfiles under the directories `felix` and `bird`.
-    + The bird configuration assumes that your container addresses are in the `192.168.0.0/16` range; if they aren't, you'll need to edit `bird.conf`.
+    + The BIRD configuration assumes that your container addresses are in the `192.168.0.0/16` range; if they aren't, you'll need to edit `bird.conf`.
 
 4. Build the four docker images, by executing the commands below. The fourth image is just a utility image that contains tools such as `wget`, `telnet` and `traceroute` - making testing connectivity easier - while the others contain real useful function.
 
@@ -37,13 +37,13 @@ The installation assumes two servers with IP addresses that you'll need to updat
 
 #### Start the containers
 
-1. On the first host, run the following as root (to start Felix, the ACL Manager, and bird respectively).
+1. On the first host, run the following as root (to start Felix, the ACL Manager, and BIRD respectively).
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
 
-2. On the second host, run the following as root (to start Felix and bird respectively). Note that the ACL Manager need only run on the first host, so is not started here.
+2. On the second host, run the following as root (to start Felix and BIRD respectively). Note that the ACL Manager need only run on the first host, so is not started here.
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
@@ -96,4 +96,4 @@ If things do go wrong (and it can be a little fiddly setting it up), then you ca
 
 * The plugin logs are also in `/var/log/calico/`.
 
-* Bird has its own logging too, and logs are sent to `/var/log/bird`.
+* BIRD has its own logging too, and logs are sent to `/var/log/bird`.
