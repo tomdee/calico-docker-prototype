@@ -1,5 +1,5 @@
 # Calico docker demonstration
-This is the script for the demo of docker running in a calico environmet.
+This is the script for the demo of docker running in a Calico environmet.
 
 ## Pre-requisite setup
 *This covers what you need to do in advance of the demo - getting machines ready etc.*
@@ -47,7 +47,7 @@ This is the script for the demo of docker running in a calico environmet.
         cp /opt/demo/felix.txt /opt/plugin/data
         cat /opt/plugin/data/* /opt/plugin/data.txt
 
-5. On the first host, run the following as root (to start Felix, bird, ACL Manager and plugin containers).
+5. On the first host, run the following as root (to start Felix, BIRD, ACL Manager and plugin containers).
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
@@ -55,7 +55,7 @@ This is the script for the demo of docker running in a calico environmet.
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
-5. On the second host, run the following as root (to start Felix and bird respectively).
+5. On the second host, run the following as root (to start Felix and BIRD respectively).
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
@@ -134,5 +134,5 @@ If things do go wrong (and it can be a little fiddly setting it up), then you ca
 
 * Logs from Felix, the ACL Manager, and the dummy plugin are in `/var/log/calico/`. Check that they are all running (and logging profusely).
 
-* Logs from bird are in `/var/log/bird/`. But bird is pretty reliable if the config is right.
+* Logs from BIRD are in `/var/log/bird/`. But BIRD is pretty reliable if the config is right.
 
