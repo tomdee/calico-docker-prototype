@@ -85,7 +85,7 @@ The installation assumes two GCE hosts, each with a valid IP address.  You'll ne
 
 #### Start the containers
 
-1. On the first host, run the following as root (to start Felix, the ACL Manager, and bird respectively).
+1. On the first host, run the following as root (to start Felix, the ACL Manager, and BIRD respectively).
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
@@ -152,5 +152,5 @@ If things do go wrong (and it can be a little fiddly setting it up), then you ca
 
 * The plugin logs are also in `/var/log/calico/`.
 
-* Bird has its own logging too, and logs are sent to `/var/log/bird`.
+* BIRD has its own logging too, and logs are sent to `/var/log/bird`.
 
