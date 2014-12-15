@@ -23,5 +23,5 @@ It has some important restrictions.
 
 + The "orchestration" in this prototype itself is just a script that configures the networking for a docker container and writes the content to file.
 
-There are two flavours of prototype, one for a Google Compute Engine environment (which relies both on having an L3 routed network and also on certain GCE commands), and one for a more general environment using an L2 routed network without GCE specific commands (such as a simple test environment where the compute servers are standard VMs). The documentation files are here for the [GCE prototype](src/master/GCEPrototype.md), and here for the [L2 routed prototype](src/master/L2RoutedPrototype.md).
+There are two flavours of prototype, one for a Google Compute Engine environment (which relies both on having an L3 routed network and also on certain GCE commands), and one for a more general environment using an L2 routed network without GCE specific commands (such as a simple test environment where the compute servers are standard VMs). The documentation files are here for the [GCE prototype](GCEPrototype.md), and here for the [L2 routed prototype](L2RoutedPrototype.md).
 
