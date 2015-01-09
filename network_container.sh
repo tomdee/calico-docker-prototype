@@ -6,19 +6,19 @@ IPADDR=$2
 GROUP=$3
 
 if [ "x$CID" = "x" ]
-then 
+then
     echo "No CID"
     exit
 fi
 
 if [ "x$IPADDR" = "x" ]
-then 
+then
     echo "No IP addr"
     exit
 fi
 
 if [ "x$GROUP" = "x" ]
-then 
+then
     echo "No group"
     exit
 fi
@@ -50,6 +50,8 @@ ip netns exec $CPID ip link set eth0 up
 ip netns exec $CPID ip addr add $IPADDR/32 dev eth0
 ip netns exec $CPID ip route add default dev eth0
 
+ip route add ${IPADDR}/32 dev $IFACE
+
 # Get the MAC address.
 MAC=`ip netns exec $CPID ip link show eth0 | grep ether | awk '{print $2}'`
 
@@ -63,3 +65,4 @@ echo "group=$GROUP"    >> $FILE
 echo                   >> $FILE
 
 cat /opt/plugin/data/* > /opt/plugin/data.txt
+
