@@ -2,59 +2,78 @@
 This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts.
 
 ## How to install and run it.
-The installation assumes two servers with IP addresses that you'll need to update these in a number of places (listed below). In the example config, these IP addresses are 10.240.254.171 and 10.240.58.221 for the first and second server respectively.
+You'll need the following.
 
-#### Prerequisites
+* Two servers with IP addresses that you'll need to update in a number of places (listed below). In the example config provided, these IP addresses are 10.240.254.171 and 10.240.58.221 for the first and second server respectively. (You can add further servers, but it requires extra changes to the config files that is not documented in detail here.)
 
-1. You'll need at least one host, and ideally two (you can add more, but you'll need to make some further changes to the various configuration files). These should normally be running CoreOS.
+* A working OS on the servers, with docker installed. We recommend CoreOS, though any other flavour of Linux is likely to work, subject to the requirement that you need at least version 1.2 of docker (and we recommend using at least version 1.3).
 
-2. Copy the whole of this git repository to both host servers as `/opt/demo` (the location isn't important, except in so far as it is used in the instructions).
+_All commands from here assume that you are running as root._
 
-3. Edit the IP addresses for the servers. These need to change in various places.
-    + `felix.txt` at the root of the repository, which must have both IP addresses and hostnames (without qualification - up to the first dot) modified.
-    + The Dockerfiles under the directories `felix` and `bird`.
-    + The BIRD configuration assumes that your container addresses are in the `192.168.0.0/16` range; if they aren't, you'll need to edit `bird.conf`.
+#### Setup and installation
 
-4. Build the four docker images, by executing the commands below. The fourth image is just a utility image that contains tools such as `wget`, `telnet` and `traceroute` - making testing connectivity easier - while the others contain real useful function.
+1. Copy the whole of this git repository to both host servers as `/opt/demo` (the location isn't important, except in so far as it is used in the instructions).
 
-        sudo docker build -t "calico:bird" /opt/demo/bird 
-        sudo docker build -t "calico:plugin" /opt/demo/plugin
-        sudo docker build -t "calico:felix" /opt/demo/felix
-        sudo docker build -t "calico:util" /opt/demo/util
+2. Edit the IP addresses for the servers. These need to change in various places.
+    + `felix.txt` at the root of the repository, which must have both IP addresses and hostnames. The hostnames in the example are `instance-1` and `instance-2`; these must match the hostnames returned by `hostname` on your compute hosts.
+    + The Dockerfiles under the directory `felix` needs to have the IP addresses changed.
+    + The Dockerfile under the directory  `bird` needs to have the IP addresses changed.
+    + Finally, and optionally, the BIRD configuration assumes that your container addresses are in the `192.168.0.0/16` range; if they aren't, you'll need to edit `bird.conf`.
 
-5. On each host, run the following commands (as root).
+    If your code is in `/opt/demo`, and the two IP addresses in use are `1.2.3.4` and `2.3.4.5`, using hostname `host_1` and `host_2`, then the following commands ought to do it.
+    
+            IP1=1.2.3.4
+            IP2=2.3.4.5
+            HOST1=host_1
+            HOST2=host_2
+            for file in /opt/demo/felix.txt /opt/demo/felix/Dockerfile /opt/demo/bird/Dockerfile;
+            do
+              sed -i 's/10.240.254.171/$IP1/' $file
+              sed -i 's/10.240.254.221/$IP2/' $file
+              sed -i 's/instance-1/$HOST1/' $file
+              sed -i 's/instance-2/$HOST2/' $file
+            done
+    
+3. Build the four docker images, by executing the commands below. The fourth image is just a utility image that contains tools such as `wget`, `telnet` and `traceroute` - making testing connectivity easier - while the others contain real useful function.
+
+        docker build -t "calico:bird" /opt/demo/bird 
+        docker build -t "calico:plugin" /opt/demo/plugin
+        docker build -t "calico:felix" /opt/demo/felix
+        docker build -t "calico:util" /opt/demo/util
+
+4. On each host, run the following commands (as root).
 
         modprobe ip6_tables
         modprobe xt_set
         mkdir /var/log/calico
         mkdir /var/run/netns
-        mkdir /opt/plugin
-        mkdir /opt/plugin/data
+        mkdir -p /opt/plugin/data
 
-6. Copy the base config file with information about Felix and the ACL manager (recall that you editted this above). You only need to run this command on the first host.
+5. Copy the base config file with information about Felix and the ACL manager (recall that you editted this above). You only need to run this command on the first host.
 
         cp /opt/demo/felix.txt /opt/plugin/data
 
 #### Start the containers
 
-1. On the first host, run the following as root (to start Felix, the ACL Manager, and BIRD respectively).
+1. On the first host, start BIRD and the plugins. The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config. Two instances are run, one for the network API and one for the Endpoint API. If you want more diagnostics, run them interactively from a bash container. *The plugin must run on the first server only.*
+
+        docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
+
+    The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config (which you will create shortly). _Note that the plugin and Felix poll for configuration - this is just a limitation of the prototype code, and means that there may be a delay of some seconds before endpoints are fully networked._
+
+2. On the first host, run the following as root (to start Felix and the ACL Manager).
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
-        docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
 
-2. On the second host, run the following as root (to start Felix and BIRD respectively). Note that the ACL Manager need only run on the first host, so is not started here.
+3. Finally, on the second (and any further) hosts, run the following to start Felix and BIRD. Note that the ACL Manager need only run on the first host, so is not started here.
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
 
-3. On the first host (only) start the plugin running. The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config. Two instances are run, one for the network API and one for the Endpoint API. If you want more diagnostics, run them interactively from a bash container. *The plugin must run on the first server only.*
-
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
-
-    The plugin would normally be the part of the orchestration that informs the Calico components about the current state of the system. In this prototype, the plugin is just a simple python script that loads text config (which you will create shortly).
-    
+   
 #### Create some configuration for Felix
 
 Next create some containers, and network them. The simplest way of doing this is as follows.
@@ -67,7 +86,7 @@ Next create some containers, and network them. The simplest way of doing this is
 
 + Now network the container. This would normally be done by the orchestration, but in this demo it is done by a shell script. Sample usage is as follows.
 
-        sh /opt/demo/network_container.sh CID IP GROUP
+        bash /opt/demo/network_container.sh CID IP GROUP
 
     Here
     * `CID` is the container ID as reported on the command line from `docker ps` (or from `docker run`).
