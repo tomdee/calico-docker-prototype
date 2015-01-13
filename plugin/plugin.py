@@ -127,10 +127,15 @@ def load_files(config_file):
             log.debug("  Found configured Felix %s at %s" % (host, ip))
 
 def do_ep_api():
-    # Create both EP sockets
+    # Create the EP REP socket
     resync_socket = zmq_context.socket(zmq.REP)
     resync_socket.bind("tcp://*:9901")
+    resync_socket.SNDTIMEO = 5000  # No receive timeout
     log.debug("Created EP socket for resync")
+
+    # We create an EP REQ socket each time we get a connection from another
+    # host.
+    create_sockets = {}
 
     #*************************************************************************#
     #* Wait for a resync request, and send the response. Note that Felix is  *#
@@ -156,8 +161,20 @@ def do_ep_api():
             resync_socket.send(json.dumps(rsp))
             log.debug("Sending %s EP msg : %s" % (fields['type'], rsp))
 
-            create_socket = zmq_context.socket(zmq.REQ)
-            create_socket.connect("tcp://%s:9902" % felix_ip[host])
+            #*****************************************************************#
+            #* Sleep for a second while that response gets through.  This is *#
+            #* not required with the latest Felix, but avoids a bug (now     *#
+            #* fixed) where the RESYNC response must arrive before the       *#
+            #* ENDPOINTCREATED.                                              *#
+            #*****************************************************************#
+            time.sleep(1)
+
+            create_socket = create_sockets.get(host)
+            if create_socket is None:
+                create_socket = zmq_context.socket(zmq.REQ)
+                create_socket.SNDTIMEO = 5000
+                create_socket.RCVTIMEO = 5000
+                create_socket.connect("tcp://%s:9902" % felix_ip[host])
         
             # Send all of the ENDPOINTCREATED messages.
             for ep in eps:
@@ -172,14 +189,21 @@ def do_ep_api():
                 create_socket.send(json.dumps(msg))
                 create_socket.recv()
                 log.debug("Got endpoint created response")
-
-            # We'll recreate this socket when we next need it.
-            create_socket.close()
         else:
             # Keepalive. We are still here.
             rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
             resync_socket.send(json.dumps(rsp))
 
+        # Send a keepalive on each EP REQ socket.
+        for host in create_sockets.keys():
+            create_socket = create_sockets[host]
+            msg = {"type": "HEARTBEAT",
+                   "issued": int(time.time()* 1000)}
+            log.debug("Sending KEEPALIVE to %s : %s" % (host, msg))
+            create_socket.send(json.dumps(msg))
+            create_socket.recv()
+            log.debug("Got response from host %s" % host)
+            
         # Reload config file just in case, before we send all the data.
         load_files(config_path)
 
@@ -268,3 +292,4 @@ def main():
         do_network_api()
       
 main()
+
