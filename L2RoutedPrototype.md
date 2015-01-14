@@ -99,7 +99,7 @@ Next create some containers, and network them. The simplest way of doing this is
 
 + If you networked a container on the first host, then you are done - the script creates files in `/opt/plugin/data`, then `cat`s everything in that directory to `/opt/plugin/data.txt` where the plugin reads is. If you networked a container on the second host, then you need to copy across the relevant container config file into `/opt/plugin/data` and manually recreate `/opt/plugin/data.txt`. On the first host, this involves something like the following commands.
 
-        scp host1:/opt/plugin/data/192_168_1_1.txt /opt/plugin/data
+        scp host2:/opt/plugin/data/192_168_1_1.txt /opt/plugin/data
         cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
 
 + The plugin checks for configuration dynamically, but it might take quite some time (up to a minute or two) before it notices and passes through changes to Calico.

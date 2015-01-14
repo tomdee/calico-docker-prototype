@@ -130,7 +130,8 @@ def do_ep_api():
     # Create the EP REP socket
     resync_socket = zmq_context.socket(zmq.REP)
     resync_socket.bind("tcp://*:9901")
-    resync_socket.SNDTIMEO = 5000  # No receive timeout
+    resync_socket.SNDTIMEO = 5000
+    resync_socket.RCVTIMEO = 5000
     log.debug("Created EP socket for resync")
 
     # We create an EP REQ socket each time we get a connection from another
@@ -143,21 +144,21 @@ def do_ep_api():
     #* because it keeps timing out our connections.                          *#
     #*************************************************************************#
     while True:
-        data   = resync_socket.recv()
-        fields = json.loads(data)
-        log.debug("Got %s EP msg : %s" % (fields['type'], fields))
+        try:
+            data   = resync_socket.recv()
+            fields = json.loads(data)
+            log.debug("Got %s EP msg : %s" % (fields['type'], fields))
+        except zmq.error.Again:
+            # No data received after timeout.
+            fields = {'type': ""}
+
         if fields['type'] == "RESYNCSTATE":
             resync_id = fields['resync_id']
             host = strip(fields['hostname'])
-            if host in eps_by_host:
-                eps = eps_by_host[host]
-            else:
-                eps = set()
-
             rsp = {"rc": "SUCCESS",
                    "message": "Hooray",
                    "type": fields['type'],
-                   "endpoint_count": str(len(eps))}
+                   "endpoint_count": str(len(get_eps_for_host(host)))}
             resync_socket.send(json.dumps(rsp))
             log.debug("Sending %s EP msg : %s" % (fields['type'], rsp))
 
@@ -169,30 +170,17 @@ def do_ep_api():
             #*****************************************************************#
             time.sleep(1)
 
-            create_socket = create_sockets.get(host)
-            if create_socket is None:
-                create_socket = zmq_context.socket(zmq.REQ)
-                create_socket.SNDTIMEO = 5000
-                create_socket.RCVTIMEO = 5000
-                create_socket.connect("tcp://%s:9902" % felix_ip[host])
-        
-            # Send all of the ENDPOINTCREATED messages.
-            for ep in eps:
-                msg = {"type": "ENDPOINTCREATED",
-                       "mac": ep.mac,
-                       "endpoint_id": ep.id,
-                       "resync_id": resync_id,
-                       "issued": int(time.time()* 1000),
-                       "state": "enabled",
-                       "addrs": [{"addr": ep.ip}]}
-                log.debug("Sending ENDPOINTCREATED to %s : %s" % (host, msg))
-                create_socket.send(json.dumps(msg))
-                create_socket.recv()
-                log.debug("Got endpoint created response")
-        else:
+            send_all_eps(create_sockets, host, resync_id)
+
+        elif fields['type'] == "HEARTBEAT":
             # Keepalive. We are still here.
             rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
             resync_socket.send(json.dumps(rsp))
+        else:
+            # Nothing happened.
+            log.debug("Nothing happened - send lots of ENDPOINTCREATED messages to make sure")
+            for host in eps_by_host.keys():
+                send_all_eps(create_sockets, host, None)
 
         # Send a keepalive on each EP REQ socket.
         for host in create_sockets.keys():
@@ -207,7 +195,40 @@ def do_ep_api():
         # Reload config file just in case, before we send all the data.
         load_files(config_path)
 
-  
+def send_all_eps(create_sockets, host, resync_id):
+    create_socket = create_sockets.get(host)
+
+    if create_socket is None:
+        create_socket = zmq_context.socket(zmq.REQ)
+        create_socket.SNDTIMEO = 5000
+        create_socket.RCVTIMEO = 5000
+        create_socket.connect("tcp://%s:9902" % felix_ip[host])
+        create_sockets[host] = create_socket
+        
+    # Send all of the ENDPOINTCREATED messages.
+    for ep in get_eps_for_host(host):
+        msg = {"type": "ENDPOINTCREATED",
+               "mac": ep.mac,
+               "endpoint_id": ep.id,
+               "resync_id": resync_id,
+               "issued": int(time.time()* 1000),
+               "state": "enabled",
+               "addrs": [{"addr": ep.ip}]}
+        log.debug("Sending ENDPOINTCREATED to %s : %s" % (host, msg))
+        create_socket.send(json.dumps(msg))
+        create_socket.recv()
+        log.debug("Got endpoint created response")
+
+
+def get_eps_for_host(host):
+    if host in eps_by_host:
+        eps = eps_by_host[host]
+    else:
+        eps = set()
+
+    return eps
+
+
 def do_network_api():
     # Create the sockets
     rep_socket = zmq_context.socket(zmq.REP)
