@@ -13,7 +13,7 @@ RUN apt-get update
 RUN apt-get dist-upgrade -y
 RUN apt-get install -y calico-felix calico-acl-manager
 
-RUN sed -i 's/controller/10.240.102.109/' /etc/calico/felix.cfg
-RUN sed -i 's/controller/10.240.102.109/' /etc/calico/acl_manager.cfg
+RUN sed -i 's/controller/IP1/' /etc/calico/felix.cfg
+RUN sed -i 's/controller/IP1/' /etc/calico/acl_manager.cfg
 RUN sed -i 's/#LogSeverityFile.*/LogSeverityFile = DEBUG/' /etc/calico/felix.cfg
 RUN sed -i 's/#ResyncIntervalSecs.*/ResyncIntervalSecs = 5/' /etc/calico/felix.cfg

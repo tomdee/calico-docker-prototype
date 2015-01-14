@@ -1,10 +1,14 @@
 # L2 Routed Docker Prototype
-This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts.
+This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts. In comprises steps for the following.
+
+* Installing and configuring Calico and the required components.
+* Creating and networking containers.
+* Verifying connectivity between containers.
 
 ## How to install and run it.
 You'll need the following.
 
-* Two servers with IP addresses that you'll need to update in a number of places (listed below). In the example config provided, these IP addresses are 10.240.254.171 and 10.240.58.221 for the first and second server respectively. (You can add further servers, but it requires extra changes to the config files that is not documented in detail here.)
+* Two servers with IP addresses that you'll need to update in a number of places (listed in the bullet points below). (You can add further servers, but it requires extra changes to the config files that is not documented in detail here.)
 
 * A working OS on the servers, with docker installed. We recommend CoreOS, though any other flavour of Linux is likely to work, subject to the requirement that you need at least version 1.2 of docker (and we recommend using at least version 1.3).
 
@@ -18,9 +22,8 @@ _All commands from here assume that you are running as root._
     + `felix.txt` at the root of the repository, which must have both IP addresses and hostnames. The hostnames in the example are `instance-1` and `instance-2`; these must match the hostnames returned by `hostname` on your compute hosts.
     + The Dockerfiles under the directory `felix` needs to have the IP addresses changed.
     + The Dockerfile under the directory  `bird` needs to have the IP addresses changed.
-    + Finally, and optionally, the BIRD configuration assumes that your container addresses are in the `192.168.0.0/16` range; if they aren't, you'll need to edit `bird.conf`.
 
-    If your code is in `/opt/demo`, and the two IP addresses in use are `1.2.3.4` and `2.3.4.5`, using hostname `host_1` and `host_2`, then the following commands ought to do it.
+    If your code is in `/opt/demo`, and the two IP addresses in use are `1.2.3.4` and `2.3.4.5`, using hostname `host_1` and `host_2`, then the following commands will do it.
     
             IP1=1.2.3.4
             IP2=2.3.4.5
@@ -28,20 +31,22 @@ _All commands from here assume that you are running as root._
             HOST2=host_2
             for file in /opt/demo/felix.txt /opt/demo/felix/Dockerfile /opt/demo/bird/Dockerfile;
             do
-              sed -i 's/10.240.254.171/$IP1/' $file
-              sed -i 's/10.240.254.221/$IP2/' $file
-              sed -i 's/instance-1/$HOST1/' $file
-              sed -i 's/instance-2/$HOST2/' $file
+              sed -i 's/IP1/$IP1/' $file
+              sed -i 's/IP2/$IP2/' $file
+              sed -i 's/HOST1/$HOST1/' $file
+              sed -i 's/HOST2/$HOST2/' $file
             done
-    
-3. Build the four docker images, by executing the commands below. The fourth image is just a utility image that contains tools such as `wget`, `telnet` and `traceroute` - making testing connectivity easier - while the others contain real useful function.
+
+3. The BIRD configuration assumes that you are willing to assign container addresses in the `192.168.0.0/16` range; if for some reason you need to use another range, you'll need to edit `bird.conf` in the (hopefully) obvious way.
+
+4. Build the four docker images, by executing the commands below. The fourth image is just a utility image that contains tools such as `wget`, `telnet` and `traceroute` - making testing connectivity easier - while the others contain real useful function.
 
         docker build -t "calico:bird" /opt/demo/bird 
         docker build -t "calico:plugin" /opt/demo/plugin
         docker build -t "calico:felix" /opt/demo/felix
         docker build -t "calico:util" /opt/demo/util
 
-4. On each host, run the following commands (as root).
+5. On each host, run the following commands (as root).
 
         modprobe ip6_tables
         modprobe xt_set
@@ -49,7 +54,7 @@ _All commands from here assume that you are running as root._
         mkdir /var/run/netns
         mkdir -p /opt/plugin/data
 
-5. Copy the base config file with information about Felix and the ACL manager (recall that you editted this above). You only need to run this command on the first host.
+6. Copy the base config file with information about Felix and the ACL manager (recall that you editted this above). You only need to run this command on the first host.
 
         cp /opt/demo/felix.txt /opt/plugin/data
 
@@ -72,8 +77,7 @@ _All commands from here assume that you are running as root._
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
-
-   
+  
 #### Create some configuration for Felix
 
 Next create some containers, and network them. The simplest way of doing this is as follows.

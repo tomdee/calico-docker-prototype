@@ -1,8 +1,8 @@
-[felix instance-1]
-ip=10.240.254.171
-host=instance-1
+[felix HOST1]
+ip=IP1
+host=HOST1
 
-[felix instance-2]
-ip=10.240.58.221
-host=instance-2
+[felix HOST2]
+ip=IP2
+host=HOST2
 
