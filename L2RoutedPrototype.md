@@ -113,6 +113,10 @@ Naturally, you'll want to check that it's doing what you expect. Good things to 
 
 * Verify that you can ping and telnet between the containers that you created above, if and only if you specified the same group name for them.
 
+## Troubleshooting
+
+### Logging and diagnostics
+
 If things do go wrong (and it can be a little fiddly setting it up), then you can either just try restarting some or all the processes or take a look at the logs.
 
 * Logs from Felix and the ACL Manager are in `/var/log/calico/`.
@@ -120,3 +124,12 @@ If things do go wrong (and it can be a little fiddly setting it up), then you ca
 * The plugin logs are also in `/var/log/calico/`.
 
 * BIRD has its own logging too, and logs are sent to `/var/log/bird`.
+
+### Known ACL manager.
+*__There is a known issue where the plugin and ACL Manager can lose connectivity; if you restart the plugins, or you find that ACLs are not being populated (typically in that endpoints cannot ping one another, but routes exist), then restart the ACL manager.__*
+
+A set of commands that will do this is as follows.
+
+        docker rm -f aclmgr
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
+
