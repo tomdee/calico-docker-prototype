@@ -17,3 +17,4 @@ RUN sed -i 's/controller/IP1/' /etc/calico/felix.cfg
 RUN sed -i 's/controller/IP1/' /etc/calico/acl_manager.cfg
 RUN sed -i 's/#LogSeverityFile.*/LogSeverityFile = DEBUG/' /etc/calico/felix.cfg
 RUN sed -i 's/#ResyncIntervalSecs.*/ResyncIntervalSecs = 5/' /etc/calico/felix.cfg
+RUN sed -i 's/#MetadataAddr.*/MetadataAddr=None/' /etc/calico/felix.cfg
