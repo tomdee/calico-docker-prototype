@@ -233,6 +233,7 @@ def do_network_api():
     # Create the sockets
     rep_socket = zmq_context.socket(zmq.REP)
     rep_socket.bind("tcp://*:9903")
+    rep_socket.RCVTIMEO = 5000
 
     pub_socket = zmq_context.socket(zmq.PUB)
     pub_socket.bind("tcp://*:9904")
@@ -246,9 +247,7 @@ def do_network_api():
         #* manager is there it will be sending either GETGROUPS or           *#
         #* HEARTBEATs.                                                       *#
         #*********************************************************************#
-        start = time.time()
-        got_groups = False
-        while not got_groups and (time.time() - start) < 15:
+        try:
             data   = rep_socket.recv()
             fields = json.loads(data)
             log.debug("Got %s network msg : %s" % (fields['type'], fields))
@@ -262,6 +261,10 @@ def do_network_api():
                 # Heartbeat. Whatever.
                 rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
                 rep_socket.send(json.dumps(rsp))
+
+        except:
+            # Probably a timeout - press on.
+            log.exception("Got an error")
 
         # Reload config file just in case, before we send all the data.
         load_files(config_path)
