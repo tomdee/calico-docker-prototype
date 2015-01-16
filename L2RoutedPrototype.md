@@ -28,7 +28,7 @@ You'll need the following.
         sudo apt-get update
         sudo apt-get install docker.io
 
-_All commands from here assume that you are running as root._
+_All commands from here on assume that you are running as root._
 
 #### Setup and installation
 
@@ -73,8 +73,8 @@ you need to use another range, you'll need to edit `bird.conf` in the
 
 4. Build the four docker images, by executing the commands below. The
 fourth image is just a utility image that contains tools such as
-`wget`, `telnet` and `traceroute` - making testing connectivity easier
-- while the others contain real useful function.
+`wget`, `telnet` and `traceroute` - making testing connectivity easier -
+while the others contain real useful function.
 
         docker build -t "calico:bird" /opt/demo/bird 
         docker build -t "calico:plugin" /opt/demo/plugin
