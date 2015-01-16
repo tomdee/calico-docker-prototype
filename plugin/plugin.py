@@ -67,6 +67,7 @@ class Endpoint:
 eps_by_host = dict()
 felix_ip    = dict()
 all_groups  = dict()
+last_config_as_string = None
 
 def strip(data):
     # Remove all from the first dot onwards
@@ -74,15 +75,14 @@ def strip(data):
     if index > 0:
         data = data[0:index]
     return data
-    
-last_config_as_string = None
 
 def load_files(config_file):
     """
     Load a config file with the data in it. Each section is an endpoint.
     Returns True if the config has changed, False if not.
     """
-
+    global last_config_as_string
+    
     # Read the entire config file as a single string.
     try:
         with open(config_file, 'r') as f:
@@ -97,7 +97,7 @@ def load_files(config_file):
 
     # Save this config for comparison against the next time.
     last_config_as_string = config_as_string
-    
+
     parser = ConfigParser.ConfigParser()
     parser.read(config_file)
 
@@ -208,13 +208,13 @@ def do_ep_api():
             create_socket.send(json.dumps(msg))
             create_socket.recv()
             log.debug("Got response from host %s" % host)
-            
+
         # Reload config file just in case, before we send all the data.
         if load_files(config_path):
             log.debug("Config changed, so send ENDPOINTCREATED requests")
             for host in eps_by_host.keys():
                 send_all_eps(create_sockets, host, None)
-            
+
 
 def send_all_eps(create_sockets, host, resync_id):
     create_socket = create_sockets.get(host)
@@ -230,7 +230,7 @@ def send_all_eps(create_sockets, host, resync_id):
         create_socket.RCVTIMEO = 5000
         create_socket.connect("tcp://%s:9902" % felix_ip[host])
         create_sockets[host] = create_socket
-        
+
     # Send all of the ENDPOINTCREATED messages.
     for ep in get_eps_for_host(host):
         msg = {"type": "ENDPOINTCREATED",
@@ -340,6 +340,5 @@ def main():
     else:
         # Do what we need to over the network API.
         do_network_api()
-      
-main()
 
+main()
