@@ -97,26 +97,22 @@ command on the first host.
 
 #### Start the containers
 
-1. On the first host, start BIRD and the plugins. The plugin would
-normally be the part of the orchestration that informs the Calico
-components about the current state of the system. In this prototype,
-the plugin is just a simple python script that loads text config. Two
-instances are run, one for the network API and one for the Endpoint
-API. If you want more diagnostics, run them interactively from a bash
-container. *The plugin must run on the first server only.*
+1. On the first host, start BIRD and the plugins.  Two instances are
+run, one for the network API and one for the Endpoint API.  If you
+want more diagnostics, run them interactively from a bash container.
+*The plugins must run on the first server only.*
 
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
-    The plugin would normally be the part of the orchestration that
+    The plugins would normally be the part of the orchestration that
     informs the Calico components about the current state of the
-    system. In this prototype, the plugin is just a simple python
-    script that loads text config (which you will create
-    shortly). _Note that the plugin and Felix poll for configuration -
-    this is just a limitation of the prototype code, and means that
-    there may be a delay of some seconds before endpoints are fully
-    networked._
+    system.  In this prototype the plugins are simple python script
+    that load text config (which you will create shortly).  _Note that
+    the plugins and Felix poll for configuration - this is just a
+    limitation of the prototype code, and means that there may be a
+    delay of some seconds before endpoints are fully networked._
 
 2. On the first host, run the following as root (to start Felix and
 the ACL Manager).
