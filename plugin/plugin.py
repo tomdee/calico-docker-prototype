@@ -198,6 +198,11 @@ def do_ep_api():
 def send_all_eps(create_sockets, host, resync_id):
     create_socket = create_sockets.get(host)
 
+    if host not in felix_ip:
+        # We don't yet have config for the host - wait until it comes
+        # later.
+        return
+
     if create_socket is None:
         create_socket = zmq_context.socket(zmq.REQ)
         create_socket.SNDTIMEO = 5000
