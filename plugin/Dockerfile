@@ -4,5 +4,6 @@ RUN apt-get update
 RUN apt-get install -y python-zmq
 
 RUN mkdir /opt/plugin
-RUN mkdir /opt/scripts
-ADD plugin.py /opt/scripts/
+ADD plugin.py . 
+RUN chmod +x plugin.py
+
