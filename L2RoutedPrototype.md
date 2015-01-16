@@ -1,5 +1,7 @@
 # L2 Routed Docker Prototype
-This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts. It comprises steps for the following.
+
+This prototype demonstrates Calico running in a docker environment
+with L2 routed compute hosts. It comprises steps for the following.
 
 * Installing and configuring Calico and the required components.
 * Creating and networking containers.
@@ -8,9 +10,15 @@ This prototype demonstrates Calico running in a docker environment with L2 route
 ## How to install and run it.
 You'll need the following.
 
-* Two servers with IP addresses that you'll need to update in a number of places (listed in the bullet points below). (You can add further servers, but it requires extra changes to the config files that is not documented in detail here.)
+* Two servers with IP addresses that you'll need to update in a number
+  of places (listed in the bullet points below). (You can add further
+  servers, but it requires extra changes to the config files that is
+  not documented in detail here.)
 
-* A working OS on the servers, with docker installed. We recommend CoreOS, though any other flavour of Linux is likely to work, subject to the requirement that you need at least version 1.2 of docker (and we recommend using at least version 1.3).
+* A working OS on the servers, with docker installed. We recommend
+  CoreOS, though any other flavour of Linux is likely to work, subject
+  to the requirement that you need at least version 1.2 of docker (and
+  we recommend using at least version 1.3).
 
 _All commands from here assume that you are running as root._
 
