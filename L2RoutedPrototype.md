@@ -21,6 +21,13 @@ You'll need the following.
   to the requirement that you need at least version 1.2 of docker (and
   we recommend using at least version 1.3).
 
+  On Ubuntu Trusty, the following instructions got Docker 1.3
+  installed:
+
+        sudo apt-add-repository ppa:docker-maint/testing
+        sudo apt-get update
+        sudo apt-get install docker.io
+
 _All commands from here assume that you are running as root._
 
 #### Setup and installation
