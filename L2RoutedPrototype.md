@@ -120,9 +120,9 @@ the ACL Manager).
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
 
-3. Finally, on the second (and any further) hosts, run the following
-to start Felix and BIRD. Note that the ACL Manager need only run on
-the first host, so is not started here.
+3. On the second (and any further) hosts, run the following to start
+Felix and BIRD.  (ACL Manager need only run on the first host, so is
+not started here.)
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
