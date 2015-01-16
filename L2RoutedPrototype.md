@@ -8,14 +8,15 @@ with L2 routed compute hosts. It comprises steps for the following.
 * Verifying connectivity between containers.
 
 ## How to install and run it.
+
 You'll need the following.
 
 * Two servers with IP addresses that you'll need to update in a number
-  of places (listed in the bullet points below). (You can add further
+  of places (listed in the bullet points below).  (You can add further
   servers, but it requires extra changes to the config files that is
   not documented in detail here.)
 
-* A working OS on the servers, with docker installed. We recommend
+* A working OS on the servers, with docker installed.  We recommend
   CoreOS, though any other flavour of Linux is likely to work, subject
   to the requirement that you need at least version 1.2 of docker (and
   we recommend using at least version 1.3).
@@ -24,11 +25,21 @@ _All commands from here assume that you are running as root._
 
 #### Setup and installation
 
-1. Copy the whole of this git repository to both host servers as `/opt/demo` (the location isn't important, except in so far as it is used in the instructions).
+1. Copy the whole of this git repository to both host servers as
+`/opt/demo` (the location isn't important, except in so far as it is
+used in the instructions).
 
-2. Edit the IP addresses for the servers. These need to change in various places.
-    + `felix.txt` at the root of the repository, which must have both IP addresses and hostnames. The hostnames in the example are `instance-1` and `instance-2`; these must match the hostnames returned by `hostname` on your compute hosts.
-    + The Dockerfiles under the directory `felix` needs to have the IP addresses changed.
+2. Edit the IP addresses for the servers. These need to change in
+various places.
+
+    + `felix.txt` at the root of the repository, which must have both
+    IP addresses and hostnames. The hostnames in the example are
+    `instance-1` and `instance-2`; these must match the hostnames
+    returned by `hostname` on your compute hosts.
+    
+    + The Dockerfiles under the directory `felix` needs to have the IP
+    addresses changed.
+    
     + The Dockerfile under the directory  `bird` needs to have the IP addresses changed.
 
     If your code is in `/opt/demo`, and the two IP addresses in use are `1.2.3.4` and `2.3.4.5`, using hostname `host_1` and `host_2`, then the following commands will do it.
