@@ -64,10 +64,10 @@ various places.
             HOST2=host_2
             for file in /opt/demo/felix.txt /opt/demo/felix/Dockerfile /opt/demo/bird/Dockerfile;
             do
-              sed -i 's/IP1/$IP1/' $file
-              sed -i 's/IP2/$IP2/' $file
-              sed -i 's/HOST1/$HOST1/' $file
-              sed -i 's/HOST2/$HOST2/' $file
+              sed -i "s/IP1/$IP1/" $file
+              sed -i "s/IP2/$IP2/" $file
+              sed -i "s/HOST1/$HOST1/" $file
+              sed -i "s/HOST2/$HOST2/" $file
             done
 
 3. The BIRD configuration assumes that you are willing to assign
