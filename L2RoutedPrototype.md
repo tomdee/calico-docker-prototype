@@ -1,5 +1,5 @@
 # L2 Routed Docker Prototype
-This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts. In comprises steps for the following.
+This prototype demonstrates Calico running in a docker environment with L2 routed compute hosts. It comprises steps for the following.
 
 * Installing and configuring Calico and the required components.
 * Creating and networking containers.
@@ -54,7 +54,7 @@ _All commands from here assume that you are running as root._
         mkdir /var/run/netns
         mkdir -p /opt/plugin/data
 
-6. Copy the base config file with information about Felix and the ACL manager (recall that you editted this above). You only need to run this command on the first host.
+6. Copy the base config file with information about Felix and the ACL manager (recall that you edited this above). You only need to run this command on the first host.
 
         cp /opt/demo/felix.txt /opt/plugin/data
 
