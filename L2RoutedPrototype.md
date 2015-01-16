@@ -24,7 +24,7 @@ You'll need the following.
   On Ubuntu Trusty, the following instructions got Docker 1.3
   installed:
 
-        sudo apt-add-repository ppa:docker-maint/testing
+        sudo apt-add-repository ppa:james-page/docker
         sudo apt-get update
         sudo apt-get install docker.io
 
