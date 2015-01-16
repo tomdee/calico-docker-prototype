@@ -16,10 +16,10 @@ You'll need the following.
   servers, but it requires extra changes to the config files that is
   not documented in detail here.)
 
-* A working OS on the servers, with docker installed.  We recommend
-  CoreOS, though any other flavour of Linux is likely to work, subject
-  to the requirement that you need at least version 1.2 of docker (and
-  we recommend using at least version 1.3).
+* A working OS on the servers, with docker installed.  Any flavour of
+  Linux is likely to work, subject to providing at least version 1.2
+  of docker (and we recommend using at least version 1.3), but we have
+  tested recently on CoreOS and Ubuntu Trusty (14.04).
 
   On Ubuntu Trusty, the following instructions got Docker 1.3
   installed:
