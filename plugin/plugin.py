@@ -75,11 +75,26 @@ def strip(data):
         data = data[0:index]
     return data
     
+last_config_as_string = None
 
 def load_files(config_file):
     """
     Load a config file with the data in it. Each section is an endpoint.
+    Returns True if the config has changed, False if not.
     """
+
+    # Read the entire config file as a single string.
+    with open(config_file, 'r') as f:
+        config_as_string = f.read()
+
+    # Compare that against the last config that we read.
+    if last_config_as_string and (config_as_string == last_config_as_string):
+        # Config has not changed.
+        return False
+
+    # Save this config for comparison against the next time.
+    last_config_as_string = config_as_string
+    
     parser = ConfigParser.ConfigParser()
     parser.read(config_file)
 
@@ -122,6 +137,8 @@ def load_files(config_file):
             host = strip(items['host'])
             felix_ip[host] = ip
             log.debug("  Found configured Felix %s at %s" % (host, ip))
+
+    return True
 
 def do_ep_api():
     # Create the EP REP socket
@@ -190,7 +207,11 @@ def do_ep_api():
             log.debug("Got response from host %s" % host)
             
         # Reload config file just in case, before we send all the data.
-        load_files(config_path)
+        if load_files(config_path):
+            log.debug("Config changed, so send ENDPOINTCREATED requests")
+            for host in eps_by_host.keys():
+                send_all_eps(create_sockets, host, None)
+            
 
 def send_all_eps(create_sockets, host, resync_id):
     create_socket = create_sockets.get(host)
