@@ -28,6 +28,10 @@ You'll need the following.
         sudo apt-get update
         sudo apt-get install docker.io
 
+* ipset installed, on each server.  For example, on Ubuntu:
+
+        sudo apt-get install ipset
+
 _All commands from here on assume that you are running as root._
 
 #### Setup and installation
