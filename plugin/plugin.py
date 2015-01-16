@@ -84,8 +84,11 @@ def load_files(config_file):
     """
 
     # Read the entire config file as a single string.
-    with open(config_file, 'r') as f:
-        config_as_string = f.read()
+    try:
+        with open(config_file, 'r') as f:
+            config_as_string = f.read()
+    except:
+        return False
 
     # Compare that against the last config that we read.
     if last_config_as_string and (config_as_string == last_config_as_string):
