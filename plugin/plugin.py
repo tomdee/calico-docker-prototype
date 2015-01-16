@@ -64,7 +64,6 @@ class Endpoint:
 #*****************************************************************************#
 #* Global variables for system state. These will be set up in load_files.    *#
 #*****************************************************************************#
-all_ips     = set()
 eps_by_host = dict()
 felix_ip    = dict()
 all_groups  = dict()
@@ -87,7 +86,6 @@ def load_files(config_file):
     log.debug("Read config from %s" % config_file)
 
     # Clear all of the data structures
-    all_ips.clear()
     eps_by_host.clear()
     felix_ip.clear()
     all_groups.clear()
@@ -117,7 +115,6 @@ def load_files(config_file):
             if not host in eps_by_host:
                 eps_by_host[host] = set()
             eps_by_host[host].add(Endpoint(id, mac, ip, group))
-            all_ips.add(ip)
             log.debug("  Found configured endpoint %s (host=%s, mac=%s, ip=%s, group=%s)" %
                       (id, host, mac, ip, group))
         elif section.lower().startswith("felix"):
