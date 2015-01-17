@@ -1,8 +1,0 @@
-[felix HOST1]
-ip=IP1
-host=HOST1
-
-[felix HOST2]
-ip=IP2
-host=HOST2
-

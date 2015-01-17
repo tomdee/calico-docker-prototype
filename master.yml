@@ -18,11 +18,13 @@ bird:
     privileged: true
 #    restart: "always"
     command: /usr/bin/run_bird bird1.conf
+    #TODO Update the command.
 
 pluginnetwork:
     build: plugin 
     volumes:
      - /var/log/calico
+     - config:/config
     net: "host"
     privileged: true
     command: python plugin.py network
@@ -31,6 +33,7 @@ pluginep:
     build: plugin
     volumes:
      - /var/log/calico
+     - config:/config
     net: "host"
     privileged: true
     command: python plugin.py ep

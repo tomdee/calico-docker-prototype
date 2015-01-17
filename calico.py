@@ -28,6 +28,7 @@ def validate_arguments(arguments):
     print(arguments)
     return True
 
+
 def configure_bird(ip, peers):
     print peers[0]
     base_config = """router id %s;
@@ -71,9 +72,20 @@ protocol bgp bgppeer {
     print base_config
     # Dump the file in the config directory
 
-def configure_felix():
-    pass
+
+def configure_felix(ip, peers):
+    # TODO - DO we really need hostnames? Find out why.
+    base_config = """[felix HOST1]
+ip=%s
+host=HOST1
+
+[felix HOST2]
+ip=%s
+host=HOST2
+""" % (ip, peers[0])
+    print base_config
     # Fill in a felix.txt template and put it in the config directory
+
 
 def launch(master, ip, peers):
     call("mkdir -p config", shell=True)
@@ -85,12 +97,19 @@ def launch(master, ip, peers):
     # else:
     #     call("sudo ./fig -f node.yml up", shell=True)
 
-def status():
-    call("sudo ./fig ps", shell=True)
+
+def status(master):
+    if master:
+        call("sudo ./fig -f master.yml ps", shell=True)
+    else:
+        call("sudo ./fig -f node.yml ps", shell=True)
     #And maybe tail the "calico" log(s)
+
 
 def run():
     # Bring create_container.sh inline here.
+    pass
+
 
 def reset(master):
     if master:
@@ -107,7 +126,7 @@ if __name__ == '__main__':
             #TODO Pull out addresses and pass to launch
             run()
         if arguments["status"]:
-            status()
+            status(arguments["--master"])
         if arguments["reset"]:
             reset(arguments["--master"])
     else:
