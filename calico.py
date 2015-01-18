@@ -45,7 +45,7 @@ def validate_arguments(arguments):
 def configure_bird(ip, peers):
     # This shouldn't live here. Bird config should live with bird and another process in the bird container should process felix.txt.
     base_config = """router id %s;
-log "/var/log/bird/bird.log" all;
+#log "/var/log/bird/bird.log" all;
 
 # Configure synchronization between routing tables and kernel.
 protocol kernel {
@@ -104,8 +104,72 @@ host=HOST2
         f.write(base_config)
     refresh_plugin_data()
 
+    base_config = """
+[global]
+# Time between retries for failed endpoint operations
+#EndpointRetryTimeMillis = 500
+# Time between complete resyncs
+ResyncIntervalSecs = 5
+# Hostname to use in messages - defaults to server hostname
+#FelixHostname = hostname
+# Plugin and ACL manager addresses
+PluginAddress = %s
+ACLAddress    = %s
+# Metadata IP (or host) and port. If no metadata configuration, set to None
+MetadataAddr  = None
+#MetadataPort  = 9697
+# Address to bind to - either "*" or an IPv4 address (or hostname)
+#LocalAddress = *
+
+[log]
+# Log file path. If LogFilePath is not set, felix will not log to file.
+#LogFilePath = /var/log/calico/felix.log
+
+# Log severities for the Felix log and for syslog.
+#   Valid levels: NONE (no logging), DEBUG, INFO, WARNING, ERROR, CRITICAL
+#LogSeverityFile   = INFO
+#LogSeveritySys    = ERROR
+LogSeverityScreen = DEBUG
+
+[connection]
+# Time with no data on a connection after which we give up on the
+# remote entity
+#ConnectionTimeoutMillis = 40000
+# Time between sending of keepalives
+#ConnectionKeepaliveIntervalMillis = 5000
+""" % (ip, ip)
+
+    with open('config/felix.cfg', 'w') as f:
+        f.write(base_config)
+
+    base_config = """
+[global]
+# Plugin address
+PluginAddress = %s
+# Address to bind to - either "*" or an IPv4 address (or hostname)
+#LocalAddress = *
+
+[log]
+# Log file path.
+# Log file path. If LogFilePath is not set, acl_manager will not log to file.
+#LogFilePath = /var/log/calico/acl_manager.log
+
+# Log severities for the Felix log and for syslog.
+#   Valid levels: NONE (no logging), DEBUG, INFO, WARNING, ERROR, CRITICAL
+#LogSeverityFile   = INFO
+#LogSeveritySys    = ERROR
+LogSeverityScreen = DEBUG
+""" % ip
+
+    with open('config/acl_manager.cfg', 'w') as f:
+        f.write(base_config)
+
+
 def launch(master, ip, peers):
     call("mkdir -p config/data", shell=True)
+    call("modprobe ip6_tables", shell=True)
+    # ipset install is required for ubuntu only. Could at least check it's available.
+
     configure_bird(ip, peers)
     configure_felix(ip, peers)
 
