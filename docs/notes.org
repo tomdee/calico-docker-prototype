@@ -1,0 +1,245 @@
+* CoreOS demo
+** Required OS configuration on the host
+As root
+  modprobe ip6_tables
+  mkdir /var/log/calico
+
+** Building a Felix / ACL container
+Creating a simple docker container and running Felix in it.
+
+  docker run -i --cidfile="/root/Felix.cid" --privileged=true --name="Felix" --net=host -t ubuntu:14.04 /bin/bash
+
+Once it is running, you can reattach by doing :
+
+  docker start -i -a `cat /root/Felix.cid`
+
+Getting the container into a fit state :
+
+  PS1='Felix:\w>'
+
+  apt-get update
+  apt-get install python iptables ipset xtables-addons-common wget telnet
+
+Now install calico. First get the public key :
+  On calico01 :
+    apt-key export 60618AAE > /tmp/key.txt
+     cd /tmp
+     python -m SimpleHTTPServer 8080
+
+  On the Felix container :
+    wget http://172.18.203.200:8080/key.txt
+    apt-key add key.txt
+
+    #First line is no good; no DNS!
+    #echo "deb http://linux-esx3-059/github ./" > /etc/apt/sources.list.d/calico.list
+    echo "deb http://172.18.197.74/github ./" > /etc/apt/sources.list.d/calico.list
+
+    apt-get update
+    apt-get install calico-felix calico-acl-manager
+
+    sed -i 's/controller/172.18.197.87/' /etc/calico/felix.cfg
+    sed -i 's/controller/172.18.197.87/' /etc/calico/acl_manager.cfg
+
+  Create jobs to start and stop Felix.
+    echo "nohup calico-felix --config-file /etc/calico/felix.cfg > /tmp/felix.out 2>&1 &" > /usr/bin/calico.sh
+    echo "nohup calico-acl-manager --config-file /etc/calico/acl_manager.cfg > /tmp/aclmgr.out 2>&1 &" >> /usr/bin/calico.sh
+    echo "sleep infinity" >> /usr/bin/calico.sh
+    chmod 777 /usr/bin/calico.sh
+
+Save it off like this :
+  docker commit <cid> calico:v1
+
+Then can recreate it as required, by just creating using that image.
+
+** Bird container creation
+docker run -i --privileged=true --name="bird" --net=host -t ubuntu:14.04 /bin/bash
+
+In the container :
+  apt-get update
+  apt-get install bird
+
+HHHmmmmm... bird won't start with config issue. Need to sort that out.
+
+Saving it off :
+  docker commit <cid> calico:bird
+
+** Plugin install
+mkdir /opt/plugin
+docker run -i --privileged=true --name="plugin" --net=host -v /opt/plugin:/opt/plugin -t ubuntu:14.04 /bin/bash
+
+On the container :
+  apt-get update
+  apt-get install python-zmq
+
+Running the plugin :
+  cd /opt/plugin
+  python plugin.py
+
+Saving it off :
+  docker commit <cid> calico:plugin
+
+** Creating networking commands for Felix (manually - also done by script)
+Create a container with no networking
+
+    docker run -i --name=test --net=none -t ubuntu:14.04 /bin/bash
+    docker run -i --name=test2 --net=none -t ubuntu:14.04 /bin/bash
+
+*** Now network it
+
+On the host:
+
+  CID=8ff1e8705892  # CID as reported by docker
+  IPADDR=10.0.0.2   # IPADDR we want to assigned
+
+  CPID=`docker inspect -f '{{.State.Pid}}' $CID`
+  ln -s /proc/$CPID/ns/net /var/run/netns/$CPID
+
+  CID=348b9a77c31c
+  CPID=$CID
+  IPADDR=10.0.0.2
+
+Create the veth pair and move one end into container as eth0 :
+  ip netns add $CPID
+  ip link add vf$CID type veth peer name tmpiface
+  ip link set vf$CID up
+  ip link set tmpiface netns $CPID
+  ip netns exec $CPID ip link set dev tmpiface name eth0
+  ip netns exec $CPID ip link set eth0 up
+
+Add an IP address to that thing :
+  ip netns exec $CPID ip addr add $IPADDR/32 dev eth0
+  ip netns exec $CPID ip route add default dev eth0
+
+Add a route to the host :
+  ip route add $IPADDR/32 dev vf$CID
+
+Tidy up :
+  ip link delete <ID, here vf then CID> type veth
+  ip netns delete <ns ID, here CPID>
+
+* How to make it all happen
+** Getting the images
+The images were saved using "docker save calico:v3 > /opt/images/felix_v3";
+they can be moved to another box and loaded using
+"docker load calico:v3 < felix_v3"
+
+
+** Running it all
+(README.md also covers this)
+
+*** Setting up the infrastructure
+Fire up felix and the ACL manager on *linux-esx03-072*
+  docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="Felix" --net=host --restart=always -t calico:v3 /usr/bin/calico-felix --config-file /etc/calico/felix.cfg
+  docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="ACLMgr" --net=host --restart=always -t calico:v3 /usr/bin/calico-acl-manager --config-file /etc/calico/acl_manager.cfg
+
+Fire up felix on *linux-esx03-073*
+  docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="Felix" --net=host --restart=always -t calico:v3 /usr/bin/calico-felix --config-file /etc/calico/felix.cfg
+
+Note that
+  + If you want you can add "-i" and "-t" options, remove the "-d" option
+    and the restart option, and just run /bin/bash. That lets you interactively
+    run. Useful for debugging.
+  + /var/log/calico is shared, so the host can see the container's log files.
+
+Fire up bird
+  On linux-esx3-072 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird -c /etc/bird/bird72.conf -s /var/run/bird.ctl
+  On linux-esx3-073 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird -c /etc/bird/bird73.conf -s /var/run/bird.ctl
+
+Fire up the plugin (which must run on linux-esx-072)
+  docker run -i --privileged=true --name="plugin" --net=host -v /opt/plugin:/opt/plugin -t calico:plugin /bin/bash
+
+Then you have a shell from which you can run the plugin as required, by doing :
+  cd /opt/plugin
+  python plugin.py
+
+** Creating a container
+On the host run
+  bash -x /opt/scripts/create_container.sh IPADDR
+where IPADDR is your IP address. Then restart the plugin.
+
+Note that there is no automatic way to tidy up all these plugins - there may be issues.
+
+* Doing the same thing on GCE
+** Getting started
+Created account, then two instances. External IP first.
+
+instance-1   130.211.60.95    10.240.254.171
+instance-2   130.211.50.98    10.240.58.221
+
+host-1       104.155.215.83   10.240.102.109
+host-2       23.251.152.103   10.240.40.50
+
+Log in as peter_white_metaswitch_com
+
+Copy up data as 
+  for i in 130.211.50.98 130.211.60.95; do pscp -r * peter_white_metaswitch_com@130.211.50.98:/tmp/data; done
+
+Useful command to nuke containers :
+  docker ps -a | awk '{print $1}' | grep -v CONTAINER | xargs -n 1 docker rm -f
+
+
+Build images as follows (after copying the bird, plugin and felix directories to the box).
+
+  sudo docker build -t "calico:bird" /tmp/data/bird 
+  sudo docker build -t "calico:plugin" /tmp/data/plugin
+  sudo docker build -t "calico:felix" /tmp/data/felix
+
+As root :
+  modprobe ip6_tables
+  mkdir /var/log/calico
+  mkdir /var/run/netns
+  mkdir -p /opt/plugin/data
+
+Run things as follows.
+
+  On instance-1 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
+
+  On instance-2 :
+    docker run -d --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
+
+And Calico:
+
+  On instance-1 :
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
+
+  On instance-2 :
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
+
+Copy across the basic config (on instance 1 only):
+  cp /tmp/data/felix.txt /opt/plugin/data/
+
+Kick off a creation or two on instance 1 as root:
+  bash /tmp/data/create_container.sh 192.168.0.2
+
+Kick off plugin (on instance 1 only):
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
+    docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
+
+
+** Trying some cunning routing stuff
+Somehow during this, instance-1 got reconfigured. Servers are now the following.
+
+instance-1   130.211.110.91   10.240.254.171
+instance-2   130.211.50.98    10.240.58.221
+
+host-1       104.155.215.83   10.240.102.109
+host-2       23.251.152.103   10.240.40.50
+
+Install gcloud as here. 
+https://cloud.google.com/compute/docs/gcloud-compute/
+
+To get it to work and set up credentials :
+https://cloud.google.com/sdk/gcloud/reference/auth/activate-service-account
+
+  gcloud auth login
+
+Finally, set up some routing to see what happens :
+  gcloud compute routes create ip-192-168-0-3 --next-hop-instance instance-1 --next-hop-instance-zone europe-west1-b --destination-range 192.168.0.3/32
+
+
+And now some useful commands
+  docker run -i -t --privileged=true --name="bird" --net=host calico:bird
