@@ -150,10 +150,9 @@ Next create some test containers, and network them. You'll want to create contai
     * Add an IP address to the `veth` interface.
     * Write a file in `/opt/plugin/data` which contains information about the endpoint (to be picked up by the dummy plugin).
 
-+ If you networked a container on the first host, then you are done - the script creates files in `/opt/plugin/data`, then `cat`s everything in that directory to `/opt/plugin/data.txt` where the Calico plugin reads it. If instead you networked a container on the second host, then you need to copy across the relevant container config file into `/opt/plugin/data` and manually recreate `/opt/plugin/data.txt`. This involves running the following commands on the first host (change the hostname and the name of the file being copied appropriately).
++ If you networked a container on the first host, then you are done - the script creates files in `/opt/plugin/data` where the Calico plugin reads it. If instead you networked a container on the second host, then you need to copy across the relevant container config file into `/opt/plugin/data`. This involves running the following commands on the first host (change the hostname and the name of the file being copied appropriately).
 
         scp host2:/opt/plugin/data/192_168_2_1.txt /opt/plugin/data
-        cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
 
 + The Calico plugin checks for configuration dynamically, but it might take quite some time (up to a minute or two) before it notices and passes through changes to the other Calico components.
 

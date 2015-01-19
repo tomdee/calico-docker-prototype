@@ -167,15 +167,13 @@ usage is as follows (as root).
       
 
 + If you networked a container on the first host, then you are done -
-the script creates files in `/opt/plugin/data`, then `cat`s everything
-in that directory to `/opt/plugin/data.txt` where the plugin reads
+the script creates files in `/opt/plugin/data`, where the plugin reads
 is. If you networked a container on the second host, then you need to
-copy across the relevant container config file into `/opt/plugin/data`
-and manually recreate `/opt/plugin/data.txt`. On the first host, this
-involves something like the following commands.
+copy across the relevant container config file into `/opt/plugin/data`.
+On the first host, this
+involves something like the following command.
 
         scp host2:/opt/plugin/data/192_168_1_1.txt /opt/plugin/data
-        cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
 
 + The plugin checks for configuration dynamically, but it might take
 quite some time (up to a minute or two) before it notices and passes
@@ -188,9 +186,10 @@ by Felix (such as the `iptables` rules and `ipsets`) left around. To remove
 these, remove the relevant text file from the first host. For example :
 
         rm /opt/plugin/data/192_168_1_1.txt
-        cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
 
-     If the plugin is on the second host, you should run the `rm` command in both places to avoid confusion (though the plugin only reads from the first host).
+     If the plugin is on the second host, you should run the `rm` command in
+     both places to avoid confusion (though the plugin only reads from the
+     first host).
 
 ## Verifying that it works
 

@@ -62,4 +62,3 @@ echo "host=$HOSTNAME"  >> $FILE
 echo "group=$GROUP"    >> $FILE
 echo                   >> $FILE
 
-cat /opt/plugin/data/* > /opt/plugin/data.txt

@@ -51,7 +51,7 @@ handler.setFormatter(formatter)
 log.addHandler(handler)
 
 log.error("Starting up Docker demo %s plugin", name)
-config_path = "/opt/plugin/data.txt"
+config_path = "/opt/plugin/data/"
 
 
 class Endpoint:
@@ -71,7 +71,6 @@ class Endpoint:
 eps_by_host = dict()
 felix_ip    = dict()
 all_groups  = dict()
-last_config_as_string = None
 
 def strip(data):
     # Remove all from the first dot onwards
@@ -80,32 +79,16 @@ def strip(data):
         data = data[0:index]
     return data
 
-def load_files(config_file):
+def load_files(config_path):
     """
-    Load a config file with the data in it. Each section is an endpoint.
-    Returns True if the config has changed, False if not.
+    Load a set of config files with the data in it. Each section is an endpoint
+    or host.
     """
-    global last_config_as_string
-    
-    # Read the entire config file as a single string.
-    try:
-        with open(config_file, 'r') as f:
-            config_as_string = f.read()
-    except:
-        return False
-
-    # Compare that against the last config that we read.
-    if last_config_as_string and (config_as_string == last_config_as_string):
-        # Config has not changed.
-        return False
-
-    # Save this config for comparison against the next time.
-    last_config_as_string = config_as_string
-
+    files = [os.path.join(config_path, f) for f in os.listdir(config_path)]
     parser = ConfigParser.ConfigParser()
-    parser.read(config_file)
+    parser.read(files)
 
-    log.debug("Read config from %s" % config_file)
+    log.debug("Read config from %s (%s)", config_path, files)
 
     # Clear all of the data structures
     eps_by_host.clear()
@@ -145,7 +128,7 @@ def load_files(config_file):
             felix_ip[host] = ip
             log.debug("  Found configured Felix %s at %s" % (host, ip))
 
-    return True
+    return
 
 def do_ep_api():
     # Create the EP REP socket
@@ -213,20 +196,12 @@ def do_ep_api():
             create_socket.recv()
             log.debug("Got response from host %s" % host)
 
-        # Reload config file just in case, before we send all the data.
-        if load_files(config_path):
-            log.debug("Config changed, so send ENDPOINTCREATED requests")
-            for host in eps_by_host.keys():
-                send_all_eps(create_sockets, host, None)
-
 
 def send_all_eps(create_sockets, host, resync_id):
     create_socket = create_sockets.get(host)
 
     if host not in felix_ip:
-        # We don't yet have config for the host - wait until it comes
-        # later.
-        return
+        raise Exception("Host name %s not recognised", host)
 
     if create_socket is None:
         create_socket = zmq_context.socket(zmq.REQ)
