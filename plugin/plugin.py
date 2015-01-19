@@ -263,7 +263,7 @@ def do_network_api():
     # Create the sockets
     rep_socket = zmq_context.socket(zmq.REP)
     rep_socket.bind("tcp://*:9903")
-    rep_socket.RCVTIMEO = 5000
+    rep_socket.RCVTIMEO = 15000
 
     pub_socket = zmq_context.socket(zmq.PUB)
     pub_socket.bind("tcp://*:9904")
@@ -294,7 +294,7 @@ def do_network_api():
 
         except zmq.error.Again:
             # Timeout - press on.
-            log.exception("Got an error")
+            log.debug("No data received")
 
         # Reload config file just in case, before we send all the data.
         load_files(config_path)
