@@ -107,8 +107,8 @@ want more diagnostics, run them interactively from a bash container.
 *The plugins must run on the first server only.*
 
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
     The plugins would normally be the part of the orchestration that
     informs the Calico components about the current state of the

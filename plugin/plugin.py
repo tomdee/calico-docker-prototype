@@ -4,6 +4,7 @@ import ConfigParser
 import json
 import logging
 import logging.handlers
+import os
 import sys
 import time
 import zmq
@@ -16,10 +17,12 @@ if len(sys.argv) != 2:
 
 if sys.argv[1].startswith("e") or sys.argv[0].startswith("E"):
     endpoint = True
+    name = "endpoint"
     print "Doing endpoint API only"
     logfile = "/var/log/calico/plugin_ep.log"
 elif sys.argv[1].startswith("n") or sys.argv[0].startswith("N"):
     endpoint = False
+    name = "network"
     print "Doing network API only"
     logfile = "/var/log/calico/plugin_net.log"
 else:
@@ -36,7 +39,7 @@ formatter = logging.Formatter(
     '%(asctime)s [%(levelname)s] %(name)s %(lineno)d: %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logging.ERROR)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
@@ -47,6 +50,7 @@ handler.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
+log.error("Starting up Docker demo %s plugin", name)
 config_path = "/opt/plugin/data.txt"
 
 
@@ -288,8 +292,8 @@ def do_network_api():
                 rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
                 rep_socket.send(json.dumps(rsp))
 
-        except:
-            # Probably a timeout - press on.
+        except zmq.error.Again:
+            # Timeout - press on.
             log.exception("Got an error")
 
         # Reload config file just in case, before we send all the data.
@@ -341,4 +345,8 @@ def main():
         # Do what we need to over the network API.
         do_network_api()
 
-main()
+try:
+    main()
+except:
+    log.exception("Terminating on exception")
+    os._exit(1)
