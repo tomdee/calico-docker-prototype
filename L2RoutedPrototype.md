@@ -34,6 +34,7 @@ You'll need the following.
 
 _All commands from here on assume that you are running as root._
 
+<a id="setup"></a>
 #### Setup and installation
 
 1. Copy the whole of this git repository to both host servers as
@@ -84,6 +85,8 @@ while the others contain real useful function.
         docker build -t "calico:plugin" /opt/demo/plugin
         docker build -t "calico:felix" /opt/demo/felix
         docker build -t "calico:util" /opt/demo/util
+
+    <a id="restart"></a>
 
 5. On each host, run the following commands (as root).
 
@@ -178,6 +181,17 @@ involves something like the following commands.
 quite some time (up to a minute or two) before it notices and passes
 through changes to Calico.
 
++ Finally, you may want to delete one of the containers that you have
+created. Just exiting from the shell will get rid of the container (and hence
+the interface and routes); however, there will still be some resources created
+by Felix (such as the `iptables` rules and `ipsets`) left around. To remove
+these, remove the relevant text file from the first host. For example :
+
+        rm /opt/plugin/data/192_168_1_1.txt
+        cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
+
+     If the plugin is on the second host, you should run the `rm` command in both places to avoid confusion (though the plugin only reads from the first host).
+
 ## Verifying that it works
 
 Naturally, you'll want to check that it's doing what you expect. Good
@@ -194,27 +208,39 @@ things to look at include the following.
 
 ## Troubleshooting
 
-### Logging and diagnostics
+### Basic checks
 
 If things do go wrong (and it can be a little fiddly setting it up),
-then you can either just try restarting some or all the processes or
-take a look at the logs.
+then here are some good initial debug steps.
+
+1. Are all of the containers running on the first host?
+
+    * `plugin1`
+    * `plugin2`
+    * `felix`
+    * `aclmgr`
+    * `bird`
+
+    All of these should restart on failure, so not running is probably a configuration error.
+
+2. Are all of the containers running on the first host?
+
+    * `felix`
+    * `bird`
+
+    Again, these should restart on failure.
+
+3. If you have rebooted your hosts, then some configuration gets lost. Rerun the instructions from [here](#restart)
+to make sure that they are all in a good state.
+
+4. Did you do all of the IP addresses and hostnames correctly in the various files? It's worth rechecking all of the steps in [the whole setup section](#setup) again.
+
+
+### Logging and diagnostics
 
 * Logs from Felix and the ACL Manager are in `/var/log/calico/`.
 
 * The plugin logs are also in `/var/log/calico/`.
 
 * BIRD has its own logging too, and logs are sent to `/var/log/bird`.
-
-### Known issues
-
-*__There is a known issue where the plugin and ACL Manager can lose
- connectivity; if you restart the plugins, or you find that ACLs are
- not being populated (typically in that endpoints cannot ping one
- another, but routes exist), then restart the ACL manager.__*
-
-A set of commands that will do this is as follows.
-
-        docker rm -f aclmgr
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
 
