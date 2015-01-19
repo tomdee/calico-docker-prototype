@@ -16,20 +16,25 @@ You'll need the following.
   servers, but it requires extra changes to the config files that is
   not documented in detail here.)
 
-* A working OS on the servers, with docker installed.  We recommend
-  CoreOS, though any other flavour of Linux is likely to work, subject
-  to the requirement that you need at least version 1.2 of docker (and
-  we recommend using at least version 1.3).
+* A working OS on the servers, with docker installed.  Any flavour of
+  Linux is likely to work, subject to providing at least version 1.2
+  of docker (and we recommend using at least version 1.3), but we have
+  tested recently on CoreOS and Ubuntu Trusty (14.04).
 
   On Ubuntu Trusty, the following instructions got Docker 1.3
   installed:
 
-        sudo apt-add-repository ppa:docker-maint/testing
+        sudo apt-add-repository ppa:james-page/docker
         sudo apt-get update
         sudo apt-get install docker.io
 
+* ipset installed, on each server.  For example, on Ubuntu:
+
+        sudo apt-get install ipset
+
 _All commands from here on assume that you are running as root._
 
+<a id="setup"></a>
 #### Setup and installation
 
 1. Copy the whole of this git repository to both host servers as
@@ -60,10 +65,10 @@ various places.
             HOST2=host_2
             for file in /opt/demo/felix.txt /opt/demo/felix/Dockerfile /opt/demo/bird/Dockerfile;
             do
-              sed -i 's/IP1/$IP1/' $file
-              sed -i 's/IP2/$IP2/' $file
-              sed -i 's/HOST1/$HOST1/' $file
-              sed -i 's/HOST2/$HOST2/' $file
+              sed -i "s/IP1/$IP1/" $file
+              sed -i "s/IP2/$IP2/" $file
+              sed -i "s/HOST1/$HOST1/" $file
+              sed -i "s/HOST2/$HOST2/" $file
             done
 
 3. The BIRD configuration assumes that you are willing to assign
@@ -81,6 +86,8 @@ while the others contain real useful function.
         docker build -t "calico:felix" /opt/demo/felix
         docker build -t "calico:util" /opt/demo/util
 
+    <a id="restart"></a>
+
 5. On each host, run the following commands (as root).
 
         modprobe ip6_tables
@@ -97,26 +104,22 @@ command on the first host.
 
 #### Start the containers
 
-1. On the first host, start BIRD and the plugins. The plugin would
-normally be the part of the orchestration that informs the Calico
-components about the current state of the system. In this prototype,
-the plugin is just a simple python script that loads text config. Two
-instances are run, one for the network API and one for the Endpoint
-API. If you want more diagnostics, run them interactively from a bash
-container. *The plugin must run on the first server only.*
+1. On the first host, start BIRD and the plugins.  Two instances are
+run, one for the network API and one for the Endpoint API.  If you
+want more diagnostics, run them interactively from a bash container.
+*The plugins must run on the first server only.*
 
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
-    The plugin would normally be the part of the orchestration that
+    The plugins would normally be the part of the orchestration that
     informs the Calico components about the current state of the
-    system. In this prototype, the plugin is just a simple python
-    script that loads text config (which you will create
-    shortly). _Note that the plugin and Felix poll for configuration -
-    this is just a limitation of the prototype code, and means that
-    there may be a delay of some seconds before endpoints are fully
-    networked._
+    system.  In this prototype the plugins are simple python script
+    that load text config (which you will create shortly).  _Note that
+    the plugins and Felix poll for configuration - this is just a
+    limitation of the prototype code, and means that there may be a
+    delay of some seconds before endpoints are fully networked._
 
 2. On the first host, run the following as root (to start Felix and
 the ACL Manager).
@@ -124,9 +127,9 @@ the ACL Manager).
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
 
-3. Finally, on the second (and any further) hosts, run the following
-to start Felix and BIRD. Note that the ACL Manager need only run on
-the first host, so is not started here.
+3. On the second (and any further) hosts, run the following to start
+Felix and BIRD.  (ACL Manager need only run on the first host, so is
+not started here.)
 
         docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="felix" --net=host --restart=always -t calico:felix calico-felix --config-file=/etc/calico/felix.cfg
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird2.conf
@@ -147,7 +150,7 @@ doing this is as follows.
 
 + Now network the container. This would normally be done by the
 orchestration, but in this demo it is done by a shell script. Sample
-usage is as follows.
+usage is as follows (as root).
 
         bash /opt/demo/network_container.sh CID IP GROUP
 
@@ -178,6 +181,17 @@ involves something like the following commands.
 quite some time (up to a minute or two) before it notices and passes
 through changes to Calico.
 
++ Finally, you may want to delete one of the containers that you have
+created. Just exiting from the shell will get rid of the container (and hence
+the interface and routes); however, there will still be some resources created
+by Felix (such as the `iptables` rules and `ipsets`) left around. To remove
+these, remove the relevant text file from the first host. For example :
+
+        rm /opt/plugin/data/192_168_1_1.txt
+        cat /opt/plugin/data/*.txt > /opt/plugin/data.txt
+
+     If the plugin is on the second host, you should run the `rm` command in both places to avoid confusion (though the plugin only reads from the first host).
+
 ## Verifying that it works
 
 Naturally, you'll want to check that it's doing what you expect. Good
@@ -194,27 +208,39 @@ things to look at include the following.
 
 ## Troubleshooting
 
-### Logging and diagnostics
+### Basic checks
 
 If things do go wrong (and it can be a little fiddly setting it up),
-then you can either just try restarting some or all the processes or
-take a look at the logs.
+then here are some good initial debug steps.
+
+1. Are all of the containers running on the first host?
+
+    * `plugin1`
+    * `plugin2`
+    * `felix`
+    * `aclmgr`
+    * `bird`
+
+    All of these should restart on failure, so not running is probably a configuration error.
+
+2. Are all of the containers running on the first host?
+
+    * `felix`
+    * `bird`
+
+    Again, these should restart on failure.
+
+3. If you have rebooted your hosts, then some configuration gets lost. Rerun the instructions from [here](#restart)
+to make sure that they are all in a good state.
+
+4. Did you do all of the IP addresses and hostnames correctly in the various files? It's worth rechecking all of the steps in [the whole setup section](#setup) again.
+
+
+### Logging and diagnostics
 
 * Logs from Felix and the ACL Manager are in `/var/log/calico/`.
 
 * The plugin logs are also in `/var/log/calico/`.
 
 * BIRD has its own logging too, and logs are sent to `/var/log/bird`.
-
-### Known issues
-
-*__There is a known issue where the plugin and ACL Manager can lose
- connectivity; if you restart the plugins, or you find that ACLs are
- not being populated (typically in that endpoints cannot ping one
- another, but routes exist), then restart the ACL manager.__*
-
-A set of commands that will do this is as follows.
-
-        docker rm -f aclmgr
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="aclmgr" --net=host --restart=always -t calico:felix calico-acl-manager --config-file=/etc/calico/acl_manager.cfg
 

@@ -4,6 +4,7 @@ import ConfigParser
 import json
 import logging
 import logging.handlers
+import os
 import sys
 import time
 import zmq
@@ -16,9 +17,11 @@ if len(sys.argv) != 2:
 
 if sys.argv[1].startswith("e") or sys.argv[0].startswith("E"):
     endpoint = True
+    name = "endpoint"
     print "Doing endpoint API only"
 elif sys.argv[1].startswith("n") or sys.argv[0].startswith("N"):
     endpoint = False
+    name = "network"
     print "Doing network API only"
 else:
     print "Need one arg, endpoint or network"
@@ -33,7 +36,7 @@ log.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s %(lineno)d: %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.DEBUG)
+handler.setLevel(logging.ERROR)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
@@ -54,10 +57,10 @@ class Endpoint:
 #*****************************************************************************#
 #* Global variables for system state. These will be set up in load_files.    *#
 #*****************************************************************************#
-all_ips     = set()
 eps_by_host = dict()
 felix_ip    = dict()
 all_groups  = dict()
+last_config_as_string = None
 
 def strip(data):
     # Remove all from the first dot onwards
@@ -65,19 +68,35 @@ def strip(data):
     if index > 0:
         data = data[0:index]
     return data
-    
 
 def load_files(config_file):
     """
     Load a config file with the data in it. Each section is an endpoint.
+    Returns True if the config has changed, False if not.
     """
+    global last_config_as_string
+    
+    # Read the entire config file as a single string.
+    try:
+        with open(config_file, 'r') as f:
+            config_as_string = f.read()
+    except:
+        return False
+
+    # Compare that against the last config that we read.
+    if last_config_as_string and (config_as_string == last_config_as_string):
+        # Config has not changed.
+        return False
+
+    # Save this config for comparison against the next time.
+    last_config_as_string = config_as_string
+
     parser = ConfigParser.ConfigParser()
     parser.read(config_file)
 
     log.debug("Read config from %s" % config_file)
 
     # Clear all of the data structures
-    all_ips.clear()
     eps_by_host.clear()
     felix_ip.clear()
     all_groups.clear()
@@ -107,7 +126,6 @@ def load_files(config_file):
             if not host in eps_by_host:
                 eps_by_host[host] = set()
             eps_by_host[host].add(Endpoint(id, mac, ip, group))
-            all_ips.add(ip)
             log.debug("  Found configured endpoint %s (host=%s, mac=%s, ip=%s, group=%s)" %
                       (id, host, mac, ip, group))
         elif section.lower().startswith("felix"):
@@ -115,6 +133,8 @@ def load_files(config_file):
             host = strip(items['host'])
             felix_ip[host] = ip
             log.debug("  Found configured Felix %s at %s" % (host, ip))
+
+    return True
 
 def do_ep_api():
     # Create the EP REP socket
@@ -181,9 +201,13 @@ def do_ep_api():
             create_socket.send(json.dumps(msg))
             create_socket.recv()
             log.debug("Got response from host %s" % host)
-            
+
         # Reload config file just in case, before we send all the data.
-        load_files(config_path)
+        if load_files(config_path):
+            log.debug("Config changed, so send ENDPOINTCREATED requests")
+            for host in eps_by_host.keys():
+                send_all_eps(create_sockets, host, None)
+
 
 def send_all_eps(create_sockets, host, resync_id):
     create_socket = create_sockets.get(host)
@@ -199,7 +223,7 @@ def send_all_eps(create_sockets, host, resync_id):
         create_socket.RCVTIMEO = 5000
         create_socket.connect("tcp://%s:9902" % felix_ip[host])
         create_sockets[host] = create_socket
-        
+
     # Send all of the ENDPOINTCREATED messages.
     for ep in get_eps_for_host(host):
         msg = {"type": "ENDPOINTCREATED",
@@ -228,7 +252,7 @@ def do_network_api():
     # Create the sockets
     rep_socket = zmq_context.socket(zmq.REP)
     rep_socket.bind("tcp://*:9903")
-    rep_socket.RCVTIMEO = 5000
+    rep_socket.RCVTIMEO = 15000
 
     pub_socket = zmq_context.socket(zmq.PUB)
     pub_socket.bind("tcp://*:9904")
@@ -257,9 +281,9 @@ def do_network_api():
                 rsp = {"rc": "SUCCESS", "message": "Hooray", "type": fields['type']}
                 rep_socket.send(json.dumps(rsp))
 
-        except:
-            # Probably a timeout - press on.
-            log.exception("Got an error")
+        except zmq.error.Again:
+            # Timeout - press on.
+            log.debug("No data received")
 
         # Reload config file just in case, before we send all the data.
         load_files(config_path)
@@ -309,6 +333,9 @@ def main():
     else:
         # Do what we need to over the network API.
         do_network_api()
-      
-main()
 
+try:
+    main()
+except:
+    log.exception("Terminating on exception")
+    os._exit(1)
