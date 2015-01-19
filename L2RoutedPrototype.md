@@ -64,10 +64,10 @@ various places.
             HOST2=host_2
             for file in /opt/demo/felix.txt /opt/demo/felix/Dockerfile /opt/demo/bird/Dockerfile;
             do
-              sed -i 's/IP1/$IP1/' $file
-              sed -i 's/IP2/$IP2/' $file
-              sed -i 's/HOST1/$HOST1/' $file
-              sed -i 's/HOST2/$HOST2/' $file
+              sed -i "s/IP1/$IP1/" $file
+              sed -i "s/IP2/$IP2/" $file
+              sed -i "s/HOST1/$HOST1/" $file
+              sed -i "s/HOST2/$HOST2/" $file
             done
 
 3. The BIRD configuration assumes that you are willing to assign
@@ -147,7 +147,7 @@ doing this is as follows.
 
 + Now network the container. This would normally be done by the
 orchestration, but in this demo it is done by a shell script. Sample
-usage is as follows.
+usage is as follows (as root).
 
         bash /opt/demo/network_container.sh CID IP GROUP
 
