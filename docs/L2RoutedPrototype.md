@@ -22,7 +22,7 @@ From git (calico-docker-prototyp) directory, use Vagrant to start the CoreOS ser
 * `vagrant up`
 
 If you want to start again at any point, you can run
-* `vagrant destroy -f core-01 core-02`
+* `vagrant destroy`
 * `vagrant up`
 
 Congratulations, you now have two CoreOS servers with the Calico code checked out on them.
@@ -47,10 +47,10 @@ At this point, it's worth checking that your two servers can ping each other.
 Calico currently requires that some components are run only on a single compute host on the network. For this prototype, we'll designate core-01 our "master" node and core-02 will be a secondary node.
 
 * On core-01
-   * `sudo ./calico launch --master --ip=172.17.8.101 --peer=172.17.8.102`
+   * `sudo ./calico launch --master --host=172.17.8.101 --peer=172.17.8.102`
 
 * On core-02
-   * `sudo ./calico launch --ip=172.17.8.102 --peer=172.17.8.101`
+   * `sudo ./calico launch --host=172.17.8.102 --peer=172.17.8.101`
 
 This will start a number of Docker containers. Check they are running
 * `sudo docker ps`
@@ -62,15 +62,18 @@ All the calico containers should share similar CREATED and STATUS values.
 For this prototype, all containers need to be assigned IPs in the `192.168.0.0/16` range.
 
 The general way to start a new container
-* `C=$(sudo ./calico run 192.168.1.2 --master=TODO --group=GROUP -- -ti  ubuntu)`
+* `C=$(sudo ./calico run 192.168.1.2 --host=HOST --group=GROUP -- -ti  ubuntu)`
     * The first `IP`, is the IP address to assign to the container.
-    * `--master` points at the IP of the master node.
+    * `--master_ip` points at the IP of the master node.    
+    * `--host` points at the IP of the current node.
     * `GROUP` is the name of the group. In this prototype, each
       endpoint is in a single group, and the other endpoints only have
       access to it if they are in the same group. Names are arbitrary.
 
 You can attach to the container created above using
-* `sudo docker attach $C`
+* `docker attach $C`
+
+Hit enter a few times to get a prompt. To get back out of the container and leave it running, remember to use `Ctrl-P,Q` rather than `exit`.
 
 So, go ahead and start a couple of containers on each host.
 * On core-01
@@ -80,7 +83,7 @@ So, go ahead and start a couple of containers on each host.
    * `C=$(sudo ./calico run 192.168.1.3 --host=172.17.8.102 --master_ip=172.17.8.101 --group=C_GROUP -- -ti  ubuntu)`
    * `D=$(sudo ./calico run 192.168.1.4 --host=172.17.8.102 --master_ip=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
 
-At this point, it should be possible to attach to B (`sudo docker attach $B`) and check that it can ping D (192.168.1.4) but not A or C. A and C are in their own groups so shouldn't be able to ping anyone else.
+At this point, it should be possible to attach to B (`docker attach $B`) and check that it can ping D (192.168.1.4) but not A or C. A and C are in their own groups so shouldn't be able to ping anyone else.
 
 
 Finally, after all your containers have finished running, to ensure everything is cleaned up, you can run
