@@ -5,15 +5,8 @@ Usage:
   calico launch [--master] --ip=<IP> [--peer=<IP>...]
   calico run <IP> --host=<IP> [--group=<GROUP>] [--] <docker-options> ...
   calico status [--master]
-  calico ps
-  calico start
-  calico stop
-  calico attach
-  calico detach
-  calico expose
-  calico hide
   calico reset [--delete-images]
-  calico version
+
 
 Options:
  --master     This is the master node, which runs ACL manager.
@@ -21,15 +14,24 @@ Options:
  --peer=<IP>  TODO
 
 """
+#   calico ps
+#   calico start
+#   calico stop
+#   calico attach
+#   calico detach
+#   calico expose
+#   calico hide
+#   calico version
 # Some pretty important things that the current docker demo can't do:
 #   Demonstrate container mobility
 #   Expose services externally
 #   Stop a service and clean everything up...
 
-#TODO - Implement all these commands
-#TODO - Bash completion
-#TODO - Logging
-#TODO -  Files should be written to a more reliable location, either relative to the binary or in a fixed location.
+# TODO - Implement all these commands
+# TODO - Bash completion
+# TODO - Logging
+# TODO -  Files should be written to a more reliable location, either relative to the binary or
+# in a fixed location.
 # TODO - Currently assumes a single peer. It shouldbe easy to work with zero or more.
 
 #Useful docker aliases
@@ -38,14 +40,8 @@ Options:
 
 from docopt import docopt
 from subprocess import call, check_output, check_call, CalledProcessError
-
-def validate_arguments(arguments):
-    # print(arguments)
-    return True
-
-def configure_bird(ip, peers):
-    # This shouldn't live here. Bird config should live with bird and another process in the bird container should process felix.txt.
-    base_config = """router id %s;
+from string import Template
+BIRD_TEMPLATE = Template("""router id $ip;
 #log "/var/log/bird/bird.log" all;
 
 # Configure synchronization between routing tables and kernel.
@@ -73,41 +69,25 @@ protocol bgp bgppeer {
   debug all;
   description "Connection to BGP peer";
   local as 64511;
-  neighbor %s as 64511;
+$neighbours
   multihop;
   gateway recursive; # This should be the default, but just in case.
   import where net ~ 192.168.0.0/16;
   export where net ~ 192.168.0.0/16;
   next hop self;    # Disable next hop processing and always advertise our
                     # local address as nexthop
-  source address %s;  # The local address we use for the TCP connection
+  source address $ip;  # The local address we use for the TCP connection
 }
-""" % (ip, peers[0], ip)
-    with open('config/bird.conf', 'w') as f:
-        f.write(base_config)
+""")
 
+PLUGIN_TEMPLATE = Template("""[felix $name]
+ip=$ip
+host=$name
 
-def refresh_plugin_data():
-    check_call("cat config/data/* >config/data.txt", shell=True)
+$peers
+""")
 
-
-def configure_felix(ip, peers):
-    # TODO - DO we really need hostnames? Find out why.
-    our_name = ip.replace('.', '_')
-    peer_name = peers[0].replace('.', '_')
-    base_config = """[felix %s]
-ip=%s
-host=%s
-
-[felix %s]
-ip=%s
-host=%s
-""" % (our_name, ip, our_name, peer_name, peers[0], peer_name)
-    with open('config/data/felix.txt', 'w') as f:
-        f.write(base_config)
-    refresh_plugin_data()
-
-    base_config = """
+FELIX_TEMPLATE = Template("""
 [global]
 # Time between retries for failed endpoint operations
 #EndpointRetryTimeMillis = 500
@@ -116,8 +96,8 @@ ResyncIntervalSecs = 5
 # Hostname to use in messages - defaults to server hostname
 #FelixHostname = hostname
 # Plugin and ACL manager addresses
-PluginAddress = %s
-ACLAddress    = %s
+PluginAddress = $ip
+ACLAddress    = $ip
 # Metadata IP (or host) and port. If no metadata configuration, set to None
 MetadataAddr  = None
 #MetadataPort  = 9697
@@ -140,15 +120,12 @@ LogSeverityScreen = DEBUG
 #ConnectionTimeoutMillis = 40000
 # Time between sending of keepalives
 #ConnectionKeepaliveIntervalMillis = 5000
-""" % (ip, ip)
+""")
 
-    with open('config/felix.cfg', 'w') as f:
-        f.write(base_config)
-
-    base_config = """
+ACL_TEMPLATE = Template("""
 [global]
 # Plugin address
-PluginAddress = %s
+PluginAddress = $ip
 # Address to bind to - either "*" or an IPv4 address (or hostname)
 #LocalAddress = *
 
@@ -162,17 +139,49 @@ PluginAddress = %s
 #LogSeverityFile   = INFO
 #LogSeveritySys    = ERROR
 LogSeverityScreen = DEBUG
-""" % ip
+""")
 
+def validate_arguments(arguments):
+    # print(arguments)
+    return True
+
+def configure_bird(ip, peers):
+    # Config shouldn't live here. Bird config should live with bird and another process in the
+    # bird container (which should process felix.txt)
+    neighbours = ""
+    for peer in peers:
+        neighbours += "  neighbor %s as 64511;\n" % peer
+
+    bird_config = BIRD_TEMPLATE.substitute(ip=ip, neighbours=neighbours)
+    with open('config/bird.conf', 'w') as f:
+        f.write(bird_config)
+
+def configure_felix(ip, peers):
+    our_name = ip.replace('.', '_')
+
+    peer_config = ""
+
+    for peer in peers:
+        peer_name = peer.replace('.', '_')
+        peer_config += "[felix {host}]\nip={ip}\nhost={host}\n\n".format(host=peer_name, ip=peer)
+
+    plugin_config = PLUGIN_TEMPLATE.substitute(ip=ip, name=our_name, peers=peer_config)
+    with open('config/data/felix.txt', 'w') as f:
+        f.write(plugin_config)
+
+    felix_config = FELIX_TEMPLATE.substitute(ip=ip)
+    with open('config/felix.cfg', 'w') as f:
+        f.write(felix_config)
+
+    aclmanager_config = ACL_TEMPLATE.substitute(ip=ip)
     with open('config/acl_manager.cfg', 'w') as f:
-        f.write(base_config)
+        f.write(aclmanager_config)
 
 
 def launch(master, ip, peers):
     call("mkdir -p config/data", shell=True)
     call("modprobe ip6_tables", shell=True)
     call("modprobe xt_set", shell=True)
-    # ipset install is required for ubuntu only. Could at least check it's available.
 
     configure_bird(ip, peers)
     configure_felix(ip, peers)
@@ -194,12 +203,15 @@ def status(master):
 def run(ip, host, group, docker_options):
     # TODO need to tidy up after all this messy networking...
     name = ip.replace('.', '_')
+    host = host.replace('.', '_')
     docker_command = 'docker run -d --net=none %s' % docker_options
     cid = check_output(docker_command, shell=True).strip()
+    #Important to print this, since that's what docker run does when running a detached container.
+    print cid
     cpid = check_output("docker inspect -f '{{.State.Pid}}' %s" % cid, shell=True).strip()
     # TODO - need to handle containers exiting straight away...
-    iface = "tap" + cpid[:11]
-    iface_tmp = "%s-tmp" % iface
+    iface = "tap" + cid[:11]
+    iface_tmp = "tap" + "%s-" % cid[:10]
     # Provision the networking
     call("mkdir -p /var/run/netns", shell=True)
     check_call("ln -s /proc/%s/ns/net /var/run/netns/%s" % (cpid, cpid), shell=True)
@@ -215,24 +227,21 @@ def run(ip, host, group, docker_options):
     check_call("ip netns exec %s ip addr add %s/32 dev eth0" % (cpid, ip), shell=True)
     check_call("ip netns exec %s ip route add default dev eth0" % cpid, shell=True)
 
-    print cid
-
     # Get the MAC address.
     mac = check_output("ip netns exec %s ip link show eth0 | grep ether | awk '{print $2}'" % cpid, shell=True).strip()
 
     base_config = """
-[endpoint $NAME]
+[endpoint %s]
 id=%s
 ip=%s
 mac=%s
 host=%s
 group=%s
 
-""" % (cid, ip, mac, host, group)
+""" % (name, cid, ip, mac, host, group)
 
     with open('config/data/%s.txt' % name, 'w') as f:
         f.write(base_config)
-    refresh_plugin_data()
 
 
 def reset(delete_images):
@@ -245,13 +254,14 @@ def reset(delete_images):
     call("./fig -f master.yml rm", shell=True)
     call("./fig -f node.yml rm", shell=True)
 
+    call("rm -rf config", shell=True)
+
     if (delete_images):
         call("docker rmi calicodockerprototype_pluginep", shell=True)
         call("docker rmi calicodockerprototype_pluginnetwork", shell=True)
         call("docker rmi calicodockerprototype_bird", shell=True)
         call("docker rmi calicodockerprototype_felix", shell=True)
         call("docker rmi calicodockerprototype_aclmanager", shell=True)
-
 
     try:
         interfaces_raw = check_output("ip link show | grep -Po ' (tap(.*?)):' |grep -Po '[^ :]+'", shell=True)
@@ -281,8 +291,3 @@ if __name__ == '__main__':
                 reset(arguments["--delete-images"])
         else:
             print "Not yet"
-
-
-
-
-
