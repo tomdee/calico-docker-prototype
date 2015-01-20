@@ -36,7 +36,7 @@ log.setLevel(logging.DEBUG)
 formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(name)s %(lineno)d: %(message)s')
 
 handler = logging.StreamHandler(sys.stdout)
-handler.setLevel(logging.ERROR)
+handler.setLevel(logging.DEBUG)
 handler.setFormatter(formatter)
 log.addHandler(handler)
 
