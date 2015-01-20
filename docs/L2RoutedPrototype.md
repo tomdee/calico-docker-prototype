@@ -9,16 +9,16 @@ To run this prototype, you'll need a Windows, Mac or Linux computer.
 
 The prototype is presented on a two node CoreOS cluster which can be run under VirtualBox and brought up using Vagrant. The config for doing this is stored in git.
 
-### Initial setup
+### Initial environment setup
 So, to get started, install Vagrant, Virtualbox and GIt for your OS.
 * https://www.virtualbox.org/wiki/Downloads
 * https://www.vagrantup.com/downloads.html
 * http://git-scm.com/downloads
 
-Clone this repo
+Clone this repo so the Vagrant file is available.
 * `git clone https://github.com/tomdee/calico-docker-prototype.git`
 
-Start the CoreOS servers
+From git (calico-docker-prototyp) directory, use Vagrant to start the CoreOS servers
 * `vagrant up`
 
 If you want to start again at any point, you can run
@@ -28,29 +28,29 @@ If you want to start again at any point, you can run
 Congratulations, you now have two CoreOS servers with the Calico code checked out on them.
 To connect to your servers
 * Linux/MacOSX
-** `vagrant ssh core-01`
-** `vagrant ssh core-02`
+   * `vagrant ssh core-01`
+   * `vagrant ssh core-02`
 * Windows
-** Follow instructions from https://github.com/nickryand/vagrant-multi-putty
-** `vagrant putty core-01`
-** `vagrant putty core-02`
+   * Follow instructions from https://github.com/nickryand/vagrant-multi-putty
+   * `vagrant putty core-01`
+   * `vagrant putty core-02`
 
 At this point, it's worth checking that your two servers can ping each other.
-#### From core-01
-* `ping 172.17.8.102`
-#### From core-01
-* `ping 172.17.8.101`
+* From core-01
+   * `ping 172.17.8.102`
+* From core-01
+   * `ping 172.17.8.101`
 
 
 <a id="setup"></a>
 ### Starting Calico
 Calico currently requires that some components are run only on a single compute host on the network. For this prototype, we'll designate core-01 our "master" node and core-02 will be a secondary node.
 
-#### On core-01
-* `sudo ./calico launch --master --ip=172.17.8.101 --peer=172.17.8.102`
+* On core-01
+   * `sudo ./calico launch --master --ip=172.17.8.101 --peer=172.17.8.102`
 
-#### On core-02
-* `sudo ./calico launch --ip=172.17.8.102 --peer=172.17.8.101`
+* On core-02
+   * `sudo ./calico launch --ip=172.17.8.102 --peer=172.17.8.101`
 
 This will start a number of Docker containers. Check they are running
 * `sudo docker ps`
@@ -61,7 +61,7 @@ All the calico containers should share similar CREATED and STATUS values.
 ### Starting and networking containers
 For this prototype, all containers need to be assigned IPs in the `192.168.0.0/16` range.
 
-To start a new container
+The general way to start a new container
 * `C=$(sudo ./calico run 192.168.1.2 --master=TODO --group=GROUP -- -ti  ubuntu)`
     * The first `IP`, is the IP address to assign to the container.
     * `--master` points at the IP of the master node.
@@ -69,27 +69,18 @@ To start a new container
       endpoint is in a single group, and the other endpoints only have
       access to it if they are in the same group. Names are arbitrary.
 
-Attach to the container created above using
+You can attach to the container created above using
 * `sudo docker attach $C`
 
 So, go ahead and start a couple of containers on each host.
-#### On core-01
-* `A=$(sudo ./calico run 192.168.1.1 --master=172.17.8.101 --group=A_GROUP -- -ti  ubuntu)`
-* `B=$(sudo ./calico run 192.168.1.2 --master=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
-#### On core-02
-* `C=$(sudo ./calico run 192.168.1.3 --master=172.17.8.101 --group=C_GROUP -- -ti  ubuntu)`
-* `D=$(sudo ./calico run 192.168.1.4 --master=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
+* On core-01
+   * `A=$(sudo ./calico run 192.168.1.1 --host=172.17.8.101 --master_ip=172.17.8.101 --group=A_GROUP -- -ti  ubuntu)`
+   * `B=$(sudo ./calico run 192.168.1.2 --host=172.17.8.101 --master_ip=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
+* On core-02
+   * `C=$(sudo ./calico run 192.168.1.3 --host=172.17.8.102 --master_ip=172.17.8.101 --group=C_GROUP -- -ti  ubuntu)`
+   * `D=$(sudo ./calico run 192.168.1.4 --host=172.17.8.102 --master_ip=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
 
-The plugin checks for configuration dynamically, but it might take
-quite some time (up to a minute or two) before it notices and passes
-through changes to Calico.
-
-TODO:
-attach to B and check it can ping D (192.168.1.4) but not A or C
-attach to D and check it can ping B (192.168.1.2) but not A or C
-attach to A or C and see they can't ping anyone else
-
-
+At this point, it should be possible to attach to B (`sudo docker attach $B`) and check that it can ping D (192.168.1.4) but not A or C. A and C are in their own groups so shouldn't be able to ping anyone else.
 
 
 Finally, after all your containers have finished running, to ensure everything is cleaned up, you can run
@@ -112,9 +103,9 @@ to make sure that they are all in a good state.
 The recommended development platform is Ubuntu 14.04 with the latest version of Docker.
 On Ubuntu Trusty, the following instructions got Docker 1.3
   installed:
-        sudo apt-add-repository ppa:james-page/docker
-        sudo apt-get update
-        sudo apt-get install docker.io
+>        sudo apt-add-repository ppa:james-page/docker
+>        sudo apt-get update
+>        sudo apt-get install docker.io
 
 
 Development
