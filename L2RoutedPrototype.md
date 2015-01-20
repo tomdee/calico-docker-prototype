@@ -15,7 +15,20 @@ You'll need the following.
   of places (listed in the bullet points below).  (You can add further
   servers, but it requires extra changes to the config files that is
   not documented in detail here.)
-
+  
+* The two servers need to be able to ping each other
+    * If you're using VMs in VirtualBox, here's one way:
+        * Configure 2 network interfaces
+            * Attach the first interface to NAT
+            * Attach the second interface to a host-only network with these settings:
+                * 10.0.3.0/24, dchp server at 10.0.3.100, pool 10.0.3.101 -> 254
+        * On the server: see if the new interface has an IP address.  If not, 
+          run something like:
+          
+                  dhclient eth1 
+                  
+          on the server to bring it up.
+  
 * A working OS on the servers, with docker installed.  Any flavour of
   Linux is likely to work, subject to providing at least version 1.2
   of docker (and we recommend using at least version 1.3), but we have
@@ -28,18 +41,24 @@ You'll need the following.
         sudo apt-get update
         sudo apt-get install docker.io
 
-* ipset installed, on each server.  For example, on Ubuntu:
+* ipset and unzip installed, on each server.  For example, on Ubuntu:
 
-        sudo apt-get install ipset
+        sudo apt-get install ipset unzip
 
 _All commands from here on assume that you are running as root._
 
 <a id="setup"></a>
 #### Setup and installation
 
+The instructions below take the form of a description of what the step does, followed by the commands required to perform that step.
+
 1. Copy the whole of this git repository to both host servers as
 `/opt/demo` (the location isn't important, except in so far as it is
-used in the instructions).
+used in the instructions). For example:
+
+        wget https://github.com/Metaswitch/calico-docker-prototype/archive/master.zip
+        unzip master.zip
+        mv calico-docker-prototype /opt/demo    
 
 2. Edit the IP addresses for the servers. These need to change in
 various places.
@@ -71,9 +90,9 @@ various places.
               sed -i "s/HOST2/$HOST2/" $file
             done
 
-3. The BIRD configuration assumes that you are willing to assign
+3. The BIRD configuration provided in the repo assumes that you are willing to assign
 container addresses in the `192.168.0.0/16` range; if for some reason
-you need to use another range, you'll need to edit `bird.conf` in the
+you need to use another range, you'll need to edit `/opt/demo/bird/bird.conf` in the
 (hopefully) obvious way.
 
 4. Build the four docker images, by executing the commands below. The
@@ -139,7 +158,8 @@ not started here.)
 Next create some containers, and network them. The simplest way of
 doing this is as follows.
 
-+ Create the container with a command something like
++ Create another ssh session to the host you want the container on, and create 
+the container with a command something like:
 
         docker run -i -t --net=none --name=192_168_1_1 calico:util
 
@@ -148,16 +168,17 @@ doing this is as follows.
     creates an interactive container - so you'll need to keep creating
     ssh sessions for each container you create.*
 
-+ Now network the container. This would normally be done by the
-orchestration, but in this demo it is done by a shell script. Sample
-usage is as follows (as root).
++ Now network the container. This would normally be done by the orchestration, 
+but in this demo it is done by a shell script. Sample usage is as follows (as 
+root).  Run this on the host hosting the container:
 
         bash /opt/demo/network_container.sh CID IP GROUP
 
     Here:
     
     * `CID` is the container ID as reported on the command line from
-      `docker ps` (or from `docker run`).
+      `docker ps` (or from `docker run` or the command prompt of the 
+      interactive session to that container).
       
     * `IP` is the IP address to assign.
     
@@ -170,8 +191,7 @@ usage is as follows (as root).
 the script creates files in `/opt/plugin/data`, where the plugin reads
 is. If you networked a container on the second host, then you need to
 copy across the relevant container config file into `/opt/plugin/data`.
-On the first host, this
-involves something like the following command.
+On the first host, this involves something like the following command.
 
         scp host2:/opt/plugin/data/192_168_1_1.txt /opt/plugin/data
 
@@ -187,7 +207,7 @@ these, remove the relevant text file from the first host. For example :
 
         rm /opt/plugin/data/192_168_1_1.txt
 
-     If the plugin is on the second host, you should run the `rm` command in
+     If the container is on the second host, you should run the `rm` command in
      both places to avoid confusion (though the plugin only reads from the
      first host).
 
@@ -222,7 +242,7 @@ then here are some good initial debug steps.
 
     All of these should restart on failure, so not running is probably a configuration error.
 
-2. Are all of the containers running on the first host?
+2. Are all of the containers running on the second host?
 
     * `felix`
     * `bird`
