@@ -2,16 +2,20 @@
 """Calico..
 
 Usage:
-  calico launch [--master] --ip=<IP> [--peer=<IP>...]
-  calico run <IP> --host=<IP> [--group=<GROUP>] [--] <docker-options> ...
+  calico launch [--master] --host=<IP> [--peer=<IP>...]
+  calico run <IP> --host=<IP> [--master_ip=<IP>] --group=<GROUP> [--] <docker-options> ...
   calico status [--master]
   calico reset [--delete-images]
 
 
 Options:
- --master     This is the master node, which runs ACL manager.
- --ip=<IP>    Our IP
- --peer=<IP>  TODO
+ --host=<IP>  Set to the IP of the current running machine.
+ --master     Set this flag when running on the master node.
+ --peer=<IP>  The IP of other compute node. Can be specified multiple times.
+ --group=<GROUP>  The group to place the container in. Communication is only possible
+                  with containers in the same group.
+  --master_ip=<IP>  The IP address of the master node.
+ <IP>         The IP to assign to the container.
 
 """
 #   calico ps
@@ -32,7 +36,6 @@ Options:
 # TODO - Logging
 # TODO -  Files should be written to a more reliable location, either relative to the binary or
 # in a fixed location.
-# TODO - Currently assumes a single peer. It shouldbe easy to work with zero or more.
 
 #Useful docker aliases
 # alias docker_kill_all='sudo docker kill $(docker ps -q)'
@@ -142,7 +145,7 @@ LogSeverityScreen = DEBUG
 """)
 
 def validate_arguments(arguments):
-    # print(arguments)
+    print(arguments)
     return True
 
 def configure_bird(ip, peers):
@@ -200,7 +203,7 @@ def status(master):
     #And maybe tail the "calico" log(s)
 
 
-def run(ip, host, group, docker_options):
+def run(ip, host, group, master_ip, docker_options):
     # TODO need to tidy up after all this messy networking...
     name = ip.replace('.', '_')
     host = host.replace('.', '_')
@@ -230,18 +233,22 @@ def run(ip, host, group, docker_options):
     # Get the MAC address.
     mac = check_output("ip netns exec %s ip link show eth0 | grep ether | awk '{print $2}'" % cpid, shell=True).strip()
 
-    base_config = """
-[endpoint %s]
-id=%s
-ip=%s
-mac=%s
-host=%s
-group=%s
+    if (master_ip):
+        #copy the file to master ip
+        pass
+    else:
+        base_config = """
+    [endpoint %s]
+    id=%s
+    ip=%s
+    mac=%s
+    host=%s
+    group=%s
 
-""" % (name, cid, ip, mac, host, group)
+    """ % (name, cid, ip, mac, host, group)
 
-    with open('config/data/%s.txt' % name, 'w') as f:
-        f.write(base_config)
+        with open('config/data/%s.txt' % name, 'w') as f:
+            f.write(base_config)
 
 
 def reset(delete_images):
@@ -281,10 +288,13 @@ if __name__ == '__main__':
         arguments = docopt(__doc__)
         if validate_arguments(arguments):
             if arguments["launch"]:
-                launch(arguments["--master"], arguments["--ip"], arguments["--peer"])
+                launch(arguments["--master"], arguments["--host"], arguments["--peer"])
             if arguments["run"]:
-                run(arguments['<IP>'], arguments['--host'], arguments['--group'], ' '.join(arguments[
-                    '<docker-options>']))
+                run(arguments['<IP>'],
+                    arguments['--host'],
+                    arguments['--group'],
+                    arguments['--master_ip'],
+                    ''.join(arguments['<docker-options>']))
             if arguments["status"]:
                 status(arguments["--master"])
             if arguments["reset"]:
