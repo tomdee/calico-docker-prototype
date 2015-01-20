@@ -145,7 +145,7 @@ LogSeverityScreen = DEBUG
 """)
 
 def validate_arguments(arguments):
-    print(arguments)
+    # print(arguments)
     return True
 
 def configure_bird(ip, peers):
@@ -238,13 +238,12 @@ def run(ip, host, group, master_ip, docker_options):
         pass
     else:
         base_config = """
-    [endpoint %s]
-    id=%s
-    ip=%s
-    mac=%s
-    host=%s
-    group=%s
-
+[endpoint %s]
+id=%s
+ip=%s
+mac=%s
+host=%s
+group=%s
     """ % (name, cid, ip, mac, host, group)
 
         with open('config/data/%s.txt' % name, 'w') as f:
@@ -271,7 +270,7 @@ def reset(delete_images):
         call("docker rmi calicodockerprototype_aclmanager", shell=True)
 
     try:
-        interfaces_raw = check_output("ip link show | grep -Po ' (tap(.*?)):' |grep -Po '[^ :]+'", shell=True)
+        interfaces_raw = check_output("ip link show | grep -Eo ' (tap(.*?)):' |grep -Eo '[^ :]+'", shell=True)
         print "Removing interfaces:\n%s" % interfaces_raw
         interfaces = interfaces_raw.splitlines()
         for interface in interfaces:
@@ -294,7 +293,7 @@ if __name__ == '__main__':
                     arguments['--host'],
                     arguments['--group'],
                     arguments['--master_ip'],
-                    ''.join(arguments['<docker-options>']))
+                    ' '.join(arguments['<docker-options>']))
             if arguments["status"]:
                 status(arguments["--master"])
             if arguments["reset"]:
