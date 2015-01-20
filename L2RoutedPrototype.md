@@ -234,7 +234,6 @@ to make sure that they are all in a good state.
 
 4. Did you do all of the IP addresses and hostnames correctly in the various files? It's worth rechecking all of the steps in [the whole setup section](#setup) again.
 
-
 ### Logging and diagnostics
 
 * Logs from Felix and the ACL Manager are in `/var/log/calico/`.
@@ -243,3 +242,4 @@ to make sure that they are all in a good state.
 
 * BIRD has its own logging too, and logs are sent to `/var/log/bird`.
 
+If you are stuck, and you want to raise an issue to ask for support, collect diagnostics by running the script `diags.sh` from this repository (`bash diags.sh` as `root`). That generates a compressed tar file under `/tmp` (name reported by the tool) that contains enough information to allow analysis.
