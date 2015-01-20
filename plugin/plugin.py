@@ -156,6 +156,9 @@ def do_ep_api():
             # No data received after timeout.
             fields = {'type': ""}
 
+        # Reload config files.
+        load_files(config_path)
+
         if fields['type'] == "RESYNCSTATE":
             resync_id = fields['resync_id']
             host = strip(fields['hostname'])
