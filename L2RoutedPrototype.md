@@ -92,8 +92,7 @@ various places.
 
 3. The BIRD configuration provided in the repo assumes that you are willing to assign
 container addresses in the `192.168.0.0/16` range; if for some reason
-you need to use another range, you'll need to edit `/opt/demo/bird/bird.conf` in the
-(hopefully) obvious way.
+you need to use another range, edit `/opt/demo/bird/bird.conf` accordingly.
 
 4. Build the four docker images, by executing the commands below. The
 fourth image is just a utility image that contains tools such as
