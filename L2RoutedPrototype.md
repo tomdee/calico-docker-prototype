@@ -160,7 +160,7 @@ doing this is as follows.
 + Create another ssh session to the host you want the container on, and create 
 the container with a command something like:
 
-        docker run -i -t --net=none --name=192_168_1_1 calico:util
+        docker run -i -t --net=none --name=192_168_0_2 calico:util
 
     The name here is deliberately intended to be the IP address;
     picking sensible names makes it far simpler to keep track. *This
