@@ -58,7 +58,7 @@ used in the instructions). For example:
 
         wget https://github.com/Metaswitch/calico-docker-prototype/archive/master.zip
         unzip master.zip
-        mv calico-docker-prototype /opt/demo    
+        mv calico-docker-prototype-master /opt/demo    
 
 2. Edit the IP addresses for the servers. These need to change in
 various places.
