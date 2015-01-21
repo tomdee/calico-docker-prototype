@@ -280,6 +280,16 @@ def do_network_api():
         # Now send all the data we have on the PUB socket.
         log.debug("Build data to publish")
 
+        if not all_groups:
+            # No groups to send; send a keepalive instead so ACL Manager
+            # doesn't think we have gone away.
+            msg = {"type": "HEARTBEAT",
+                   "issued": int(time.time()* 1000)}
+            log.debug("Sending network heartbeat %s", msg)
+            pub_socket.send_multipart(['networkheartbeat'.encode('utf-8'),
+                                       json.dumps(msg).encode('utf-8')])
+
+
         for group in all_groups:
             members = all_groups[group]
 
