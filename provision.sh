@@ -12,7 +12,10 @@ echo "172.17.8.102 core-02" >> /etc/hosts
 # in the cluster to ssh to the master and transfer the config
 # for newly-created docker containers.
 
-cat <<EOF > .ssh/id_rsa
+mkdir -p /root/.ssh/
+chmod -R go-rwx /root/.ssh
+
+cat <<EOF > /root/.ssh/id_rsa
 -----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAqjT/tu+11W9sJiqaJnsh0TkiClZZVGAiYV7EUAsJTU3upKtz
 zfgCRCkcdqLB9GQgH9hg9SE92y1sUizLl7pquz+7wg8eNN9VsjQrhgl6YX3fdo72
@@ -42,16 +45,16 @@ nOxY5gICvoeuE5/txB/Gvq+tpoOsouB5glYCloM05hYmCbGrIMA=
 -----END RSA PRIVATE KEY-----
 EOF
 
-cat <<EOF > .ssh/id_rsa.pub
+cat <<EOF > /root/.ssh/id_rsa.pub
 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCqNP+277XVb2wmKpomeyHROSIKVllUYCJhXsRQCwlNTe6kq3PN+AJEKRx2osH0ZCAf2GD1IT3bLWxSLMuXumq7P7vCDx4031WyNCuGCXphfd92jvacUN2EfdLqb1ef2+ISywEflk100U3af8Dm4ATytbCcSptiPQRKlK6dABrPqatOtmvykaSzpg5Xhb3SBzoaeGdU4/hu+SO9b5Fxnj2zj6LJ2OtSG7mJmcNmlPA33UlcBJBdMVxp9FdEqmRZgSqBmaGgkxHs3/wHvi6vJFNOS9MBVEtGHzCYg+08qhstEKSsC7dbvjEsDl5jwBNSThje/0jdwfg63VqMLYkRqbCb core@core-02
 EOF
 
-if ! grep @core-02 .ssh/authorized_keys; then
-cat <<EOF >> .ssh/authorized_keys
+if ! grep @core-02 /root/.ssh/authorized_keys; then
+cat <<EOF >> /root/.ssh/authorized_keys
 ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCqNP+277XVb2wmKpomeyHROSIKVllUYCJhXsRQCwlNTe6kq3PN+AJEKRx2osH0ZCAf2GD1IT3bLWxSLMuXumq7P7vCDx4031WyNCuGCXphfd92jvacUN2EfdLqb1ef2+ISywEflk100U3af8Dm4ATytbCcSptiPQRKlK6dABrPqatOtmvykaSzpg5Xhb3SBzoaeGdU4/hu+SO9b5Fxnj2zj6LJ2OtSG7mJmcNmlPA33UlcBJBdMVxp9FdEqmRZgSqBmaGgkxHs3/wHvi6vJFNOS9MBVEtGHzCYg+08qhstEKSsC7dbvjEsDl5jwBNSThje/0jdwfg63VqMLYkRqbCb core@core-02
 EOF
 fi
 
-chmod -R go-rwx .ssh
-chown -R core:core calico-docker-prototype .ssh
+chmod -R go-rwx /root/.ssh
+chown -R core:core calico-docker-prototype
 
