@@ -124,8 +124,8 @@ def do_ep_api():
     # Create the EP REP socket
     resync_socket = zmq_context.socket(zmq.REP)
     resync_socket.bind("tcp://*:9901")
-    resync_socket.SNDTIMEO = 5000
-    resync_socket.RCVTIMEO = 5000
+    resync_socket.SNDTIMEO = 10000
+    resync_socket.RCVTIMEO = 10000
     log.debug("Created EP socket for resync")
 
     # We create an EP REQ socket each time we get a connection from another
@@ -198,8 +198,8 @@ def send_all_eps(create_sockets, host, resync_id):
 
     if create_socket is None:
         create_socket = zmq_context.socket(zmq.REQ)
-        create_socket.SNDTIMEO = 5000
-        create_socket.RCVTIMEO = 5000
+        create_socket.SNDTIMEO = 10000
+        create_socket.RCVTIMEO = 10000
         create_socket.connect("tcp://%s:9902" % felix_ip[host])
         create_sockets[host] = create_socket
 
@@ -269,6 +269,16 @@ def do_network_api():
 
         # Now send all the data we have on the PUB socket.
         log.debug("Build data to publish")
+
+        if not all_groups:
+            # No groups to send; send a keepalive instead so ACL Manager
+            # doesn't think we have gone away.
+            msg = {"type": "HEARTBEAT",
+                   "issued": int(time.time()* 1000)}
+            log.debug("Sending network heartbeat %s", msg)
+            pub_socket.send_multipart(['networkheartbeat'.encode('utf-8'),
+                                       json.dumps(msg).encode('utf-8')])
+
 
         for group in all_groups:
             members = all_groups[group]
