@@ -64,7 +64,7 @@ do that, there are several major components.
 
 Apart from the "orchestration" which is just represented by bash scripts, the
 above components are all implemented in privileged containers, running in the
-network namespace. These containers are as follows.
+network namespace of the host. These containers are as follows.
 
 * `felix` contains Felix. Although this is production code, the configuration
   has been changed so Felix polls for a complete resync of endpoint data every
@@ -102,7 +102,7 @@ When an endpoint is added, the flow of events is as follows.
 
 * The container for that endpoint is manually created using the `docker`
   command line, and the `network_container` script is run both to create the
-  relevant interface and set up the text files for the plugin to read.
+  relevant interface and to set up the text files for the plugin to read.
 
 * The two plugin containers are being polled for changes to endpoint
   configuration, and so repeatedly reading these files. They therefore
