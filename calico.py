@@ -97,7 +97,7 @@ FELIX_TEMPLATE = Template("""
 # Time between complete resyncs
 ResyncIntervalSecs = 5
 # Hostname to use in messages - defaults to server hostname
-#FelixHostname = hostname
+FelixHostname = $hostname
 # Plugin and ACL manager addresses
 PluginAddress = $ip
 ACLAddress    = $ip
@@ -172,7 +172,7 @@ def configure_felix(ip, peers):
     with open('config/data/felix.txt', 'w') as f:
         f.write(plugin_config)
 
-    felix_config = FELIX_TEMPLATE.substitute(ip=ip)
+    felix_config = FELIX_TEMPLATE.substitute(ip=ip, hostname=our_name)
     with open('config/felix.cfg', 'w') as f:
         f.write(felix_config)
 
