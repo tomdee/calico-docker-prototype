@@ -128,8 +128,8 @@ want more diagnostics, run them interactively from a bash container.
 *The plugins must run on the first server only.*
 
         docker run -d -v /var/log/bird:/var/log/bird --privileged=true --name="bird" --net=host --restart=always -t calico:bird /usr/bin/run_bird bird1.conf
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin1" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
-        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin2" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin_net" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py network
+        docker run -d -v /var/log/calico:/var/log/calico --privileged=true --name="plugin_ep" --net=host --restart=always -v /opt/plugin:/opt/plugin calico:plugin python /opt/scripts/plugin.py ep
 
     The plugins would normally be the part of the orchestration that
     informs the Calico components about the current state of the
@@ -233,13 +233,15 @@ then here are some good initial debug steps.
 
 1. Are all of the containers running on the first host?
 
-    * `plugin1`
-    * `plugin2`
+    * `plugin_net`
+    * `plugin_ep`
     * `felix`
     * `aclmgr`
     * `bird`
 
-    All of these should restart on failure, so not running is probably a configuration error.
+    All of these should restart on failure, so not running is probably a
+    configuration error, but you can see restarting by looking to see how
+    recently the containers have been restarted.
 
 2. Are all of the containers running on the second host?
 
@@ -248,16 +250,22 @@ then here are some good initial debug steps.
 
     Again, these should restart on failure.
 
-3. If you have rebooted your hosts, then some configuration gets lost. Rerun the instructions from [here](#restart)
-to make sure that they are all in a good state.
+3. If you have rebooted your hosts, then some configuration gets lost. Rerun
+   the instructions from section 5 [here](#restart) to make sure that they are all
+   in a good state.
 
-4. Did you do all of the IP addresses and hostnames correctly in the various files? It's worth rechecking all of the steps in [the whole setup section](#setup) again.
+4. If you are seeing containers restarting with logs complaining about failure
+   to connect or missing hearbeats, you may well have got some of the IP
+   addresses and hostnames wrong in the various files. If so, it's worth
+   rechecking all of the steps in [the whole setup section](#setup) again.
 
 ### Logging and diagnostics
 
-* Logs from Felix and the ACL Manager are in `/var/log/calico/`.
-
-* The plugin logs are also in `/var/log/calico/`.
+* Logs from Felix and the ACL Manager are in `/var/log/calico`, named
+  `felix.log` and `acl_manager.log`. *Note that these logs are very verbose
+  because we are polling for a total resync over and over.*
+  
+* The plugin logs are also in `/var/log/calico`, named `plugin_ep.log` and `plugin_net.log`.
 
 * BIRD has its own logging too, and logs are sent to `/var/log/bird`.
 
