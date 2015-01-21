@@ -244,7 +244,7 @@ group=%s
 
     if master_ip:
         #copy the file to master ip
-        command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' core@{host} 'cat " \
+        command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' {host} 'cat " \
                   ">calico-docker-prototype/config/data/{" \
         "filename}.txt'".format(config=base_config, host=master_ip, filename=name)
         check_call(command, shell=True)
