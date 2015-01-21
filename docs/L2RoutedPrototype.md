@@ -52,10 +52,10 @@ All commands need to be run from the calico-docker-prototype directory
 * `cd calico-docker-prototype`
 
 * On core-01
-   * `sudo ./calico launch --master --host=172.17.8.101 --peer=172.17.8.102`
+   * `sudo ./calico launch --host=172.17.8.101 --peer=172.17.8.102`
 
 * On core-02
-   * `sudo ./calico launch --host=172.17.8.102 --peer=172.17.8.101`
+   * `sudo ./calico launch --host=172.17.8.102 --master_ip=172.17.8.101 --peer=172.17.8.101`
 
 This will start a number of Docker containers. Check they are running
 * `sudo docker ps`

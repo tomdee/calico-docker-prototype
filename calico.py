@@ -2,10 +2,11 @@
 """Calico..
 
 Usage:
-  calico launch [--master] --host=<IP> [--peer=<IP>...]
+  calico launch --host=<IP> [--master_ip=<IP>] [--peer=<IP>...]
   calico run <IP> --host=<IP> [--master_ip=<IP>] --group=<GROUP> [--] <docker-options> ...
   calico status [--master]
   calico reset [--delete-images]
+  calico version
 
 
 Options:
@@ -159,7 +160,7 @@ def configure_bird(ip, peers):
     with open('config/bird.conf', 'w') as f:
         f.write(bird_config)
 
-def configure_felix(ip, peers):
+def configure_felix(ip, master_ip, peers):
     our_name = ip.replace('.', '_')
 
     peer_config = ""
@@ -172,7 +173,7 @@ def configure_felix(ip, peers):
     with open('config/data/felix.txt', 'w') as f:
         f.write(plugin_config)
 
-    felix_config = FELIX_TEMPLATE.substitute(ip=ip, hostname=our_name)
+    felix_config = FELIX_TEMPLATE.substitute(ip=master_ip, hostname=our_name)
     with open('config/felix.cfg', 'w') as f:
         f.write(felix_config)
 
@@ -181,18 +182,18 @@ def configure_felix(ip, peers):
         f.write(aclmanager_config)
 
 
-def launch(master, ip, peers):
+def launch(ip, master_ip, peers):
     call("mkdir -p config/data", shell=True)
     call("modprobe ip6_tables", shell=True)
     call("modprobe xt_set", shell=True)
 
     configure_bird(ip, peers)
-    configure_felix(ip, peers)
+    configure_felix(ip, master_ip, peers)
 
-    if master:
-        call("./fig -f master.yml up -d", shell=True)
-    else:
+    if master_ip:
         call("./fig -f node.yml up -d", shell=True)
+    else:
+        call("./fig -f master.yml up -d", shell=True)
 
 
 def status(master):
@@ -283,6 +284,9 @@ def reset(delete_images):
         print "No interfaces to clean up"
 
 
+def version():
+    call('docker run --rm  -ti calicodockerprototype_felix  apt-cache policy calico-felix', shell=True)
+
 if __name__ == '__main__':
     import os
     if os.geteuid() != 0:
@@ -291,7 +295,7 @@ if __name__ == '__main__':
         arguments = docopt(__doc__)
         if validate_arguments(arguments):
             if arguments["launch"]:
-                launch(arguments["--master"], arguments["--host"], arguments["--peer"])
+                launch(arguments["--host"], arguments['--master_ip'], arguments["--peer"])
             if arguments["run"]:
                 run(arguments['<IP>'],
                     arguments['--host'],
@@ -302,5 +306,7 @@ if __name__ == '__main__':
                 status(arguments["--master"])
             if arguments["reset"]:
                 reset(arguments["--delete-images"])
+            if arguments["version"]:
+                version()
         else:
             print "Not yet"
