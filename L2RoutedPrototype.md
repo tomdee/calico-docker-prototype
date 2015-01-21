@@ -58,7 +58,7 @@ used in the instructions). For example:
 
         wget https://github.com/Metaswitch/calico-docker-prototype/archive/master.zip
         unzip master.zip
-        mv calico-docker-prototype /opt/demo    
+        mv calico-docker-prototype-master /opt/demo    
 
 2. Edit the IP addresses for the servers. These need to change in
 various places.
@@ -92,8 +92,7 @@ various places.
 
 3. The BIRD configuration provided in the repo assumes that you are willing to assign
 container addresses in the `192.168.0.0/16` range; if for some reason
-you need to use another range, you'll need to edit `/opt/demo/bird/bird.conf` in the
-(hopefully) obvious way.
+you need to use another range, edit `/opt/demo/bird/bird.conf` accordingly.
 
 4. Build the four docker images, by executing the commands below. The
 fourth image is just a utility image that contains tools such as
@@ -161,7 +160,7 @@ doing this is as follows.
 + Create another ssh session to the host you want the container on, and create 
 the container with a command something like:
 
-        docker run -i -t --net=none --name=192_168_1_1 calico:util
+        docker run -i -t --net=none --name=192_168_0_2 calico:util
 
     The name here is deliberately intended to be the IP address;
     picking sensible names makes it far simpler to keep track. *This
