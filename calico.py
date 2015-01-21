@@ -233,11 +233,7 @@ def run(ip, host, group, master_ip, docker_options):
     # Get the MAC address.
     mac = check_output("ip netns exec %s ip link show eth0 | grep ether | awk '{print $2}'" % cpid, shell=True).strip()
 
-    if (master_ip):
-        #copy the file to master ip
-        pass
-    else:
-        base_config = """
+    base_config = """
 [endpoint %s]
 id=%s
 ip=%s
@@ -246,6 +242,14 @@ host=%s
 group=%s
     """ % (name, cid, ip, mac, host, group)
 
+    if master_ip:
+        #copy the file to master ip
+        command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' core@{host} 'cat " \
+                  ">calico-docker-prototype/config/data/{" \
+        "filename}.txt'".format(config=base_config, host=master_ip, filename=name)
+        check_call(command, shell=True)
+
+    else:
         with open('config/data/%s.txt' % name, 'w') as f:
             f.write(base_config)
 
