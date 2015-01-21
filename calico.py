@@ -2,16 +2,20 @@
 """Calico..
 
 Usage:
-  calico launch [--master] --ip=<IP> [--peer=<IP>...]
-  calico run <IP> --host=<IP> [--group=<GROUP>] [--] <docker-options> ...
+  calico launch [--master] --host=<IP> [--peer=<IP>...]
+  calico run <IP> --host=<IP> [--master_ip=<IP>] --group=<GROUP> [--] <docker-options> ...
   calico status [--master]
   calico reset [--delete-images]
 
 
 Options:
- --master     This is the master node, which runs ACL manager.
- --ip=<IP>    Our IP
- --peer=<IP>  TODO
+ --host=<IP>  Set to the IP of the current running machine.
+ --master     Set this flag when running on the master node.
+ --peer=<IP>  The IP of other compute node. Can be specified multiple times.
+ --group=<GROUP>  The group to place the container in. Communication is only possible
+                  with containers in the same group.
+  --master_ip=<IP>  The IP address of the master node.
+ <IP>         The IP to assign to the container.
 
 """
 #   calico ps
@@ -32,7 +36,6 @@ Options:
 # TODO - Logging
 # TODO -  Files should be written to a more reliable location, either relative to the binary or
 # in a fixed location.
-# TODO - Currently assumes a single peer. It shouldbe easy to work with zero or more.
 
 #Useful docker aliases
 # alias docker_kill_all='sudo docker kill $(docker ps -q)'
@@ -94,7 +97,7 @@ FELIX_TEMPLATE = Template("""
 # Time between complete resyncs
 ResyncIntervalSecs = 5
 # Hostname to use in messages - defaults to server hostname
-#FelixHostname = hostname
+FelixHostname = $hostname
 # Plugin and ACL manager addresses
 PluginAddress = $ip
 ACLAddress    = $ip
@@ -169,7 +172,7 @@ def configure_felix(ip, peers):
     with open('config/data/felix.txt', 'w') as f:
         f.write(plugin_config)
 
-    felix_config = FELIX_TEMPLATE.substitute(ip=ip)
+    felix_config = FELIX_TEMPLATE.substitute(ip=ip, hostname=our_name)
     with open('config/felix.cfg', 'w') as f:
         f.write(felix_config)
 
@@ -200,7 +203,7 @@ def status(master):
     #And maybe tail the "calico" log(s)
 
 
-def run(ip, host, group, docker_options):
+def run(ip, host, group, master_ip, docker_options):
     # TODO need to tidy up after all this messy networking...
     name = ip.replace('.', '_')
     host = host.replace('.', '_')
@@ -237,11 +240,18 @@ ip=%s
 mac=%s
 host=%s
 group=%s
+    """ % (name, cid, ip, mac, host, group)
 
-""" % (name, cid, ip, mac, host, group)
+    if master_ip:
+        #copy the file to master ip
+        command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' core@{host} 'cat " \
+                  ">calico-docker-prototype/config/data/{" \
+        "filename}.txt'".format(config=base_config, host=master_ip, filename=name)
+        check_call(command, shell=True)
 
-    with open('config/data/%s.txt' % name, 'w') as f:
-        f.write(base_config)
+    else:
+        with open('config/data/%s.txt' % name, 'w') as f:
+            f.write(base_config)
 
 
 def reset(delete_images):
@@ -264,7 +274,7 @@ def reset(delete_images):
         call("docker rmi calicodockerprototype_aclmanager", shell=True)
 
     try:
-        interfaces_raw = check_output("ip link show | grep -Po ' (tap(.*?)):' |grep -Po '[^ :]+'", shell=True)
+        interfaces_raw = check_output("ip link show | grep -Eo ' (tap(.*?)):' |grep -Eo '[^ :]+'", shell=True)
         print "Removing interfaces:\n%s" % interfaces_raw
         interfaces = interfaces_raw.splitlines()
         for interface in interfaces:
@@ -281,10 +291,13 @@ if __name__ == '__main__':
         arguments = docopt(__doc__)
         if validate_arguments(arguments):
             if arguments["launch"]:
-                launch(arguments["--master"], arguments["--ip"], arguments["--peer"])
+                launch(arguments["--master"], arguments["--host"], arguments["--peer"])
             if arguments["run"]:
-                run(arguments['<IP>'], arguments['--host'], arguments['--group'], ' '.join(arguments[
-                    '<docker-options>']))
+                run(arguments['<IP>'],
+                    arguments['--host'],
+                    arguments['--group'],
+                    arguments['--master_ip'],
+                    ' '.join(arguments['<docker-options>']))
             if arguments["status"]:
                 status(arguments["--master"])
             if arguments["reset"]:

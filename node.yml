@@ -4,7 +4,7 @@ bird:
      - config:/config
     net: "host"
     privileged: true
-#    restart: "always"
+    restart: "always"
     command:  bird -s bird.ctl -d -c /config/bird.conf
 
 felix:
@@ -13,6 +13,6 @@ felix:
      - config:/config
     net: "host"
     privileged: true
-#    restart: "always"
+    restart: "always"
     command: calico-felix --config-file=/config/felix.cfg
 
