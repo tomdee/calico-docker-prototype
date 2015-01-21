@@ -187,11 +187,12 @@ def launch(ip, master_ip, peers):
     call("modprobe ip6_tables", shell=True)
     call("modprobe xt_set", shell=True)
 
-    if not master_ip:
-        master_ip = ip
+    plugin_ip = master_ip
+    if not plugin_ip:
+        plugin_ip = ip
 
     configure_bird(ip, peers)
-    configure_felix(ip, master_ip, peers)
+    configure_felix(ip, plugin_ip, peers)
 
     if master_ip:
         call("./fig -f node.yml up -d", shell=True)
