@@ -21,11 +21,11 @@ Clone this repo so the Vagrant file is available.
 From git (calico-docker-prototyp) directory, use Vagrant to start the CoreOS servers
 * `vagrant up`
 
-If you want to start again at any point, you can run
+Congratulations, you now have two CoreOS servers with the Calico code checked out on them. The servers are named core-01 and core-02.  By default these have IP addresses 172.17.8.101 and 172.17.8.102. If you want to start again at any point, you can run
+
 * `vagrant destroy`
 * `vagrant up`
 
-Congratulations, you now have two CoreOS servers with the Calico code checked out on them.
 To connect to your servers
 * Linux/MacOSX
    * `vagrant ssh core-01`
@@ -38,13 +38,15 @@ To connect to your servers
 At this point, it's worth checking that your two servers can ping each other.
 * From core-01
    * `ping 172.17.8.102`
-* From core-01
+* From core-02
    * `ping 172.17.8.101`
 
 
 <a id="setup"></a>
 ### Starting Calico
 Calico currently requires that some components are run only on a single compute host on the network. For this prototype, we'll designate core-01 our "master" node and core-02 will be a secondary node.
+
+For now, the script requires you to provide the IP address of the local CoreOS server the --host parameter.
 
 * On core-01
    * `sudo ./calico launch --master --host=172.17.8.101 --peer=172.17.8.102`
@@ -61,24 +63,23 @@ All the calico containers should share similar CREATED and STATUS values.
 ### Starting and networking containers
 For this prototype, all containers need to be assigned IPs in the `192.168.0.0/16` range.
 
-The general way to start a new container
-* `C=$(sudo ./calico run 192.168.1.2 --host=HOST --group=GROUP -- -ti  ubuntu)`
-    * The first `IP`, is the IP address to assign to the container.
-    * `--master_ip` points at the IP of the master node.    
+The general way to start a new container:  (Hint: don't run this yet; specific examples to run below.)
+* `CID=$(sudo ./calico run CONTAINER_IP --master_ip=MASTER_IP --host=MY_IP --group=GROUP -- -ti  ubuntu)`
+    * `CONTAINER_IP`, is the IP address to assign to the container; this must be unique address from the 192.168.0.0/16 range.
+    * `--master_ip` points at the IP of the master node.
     * `--host` points at the IP of the current node.
-    * `GROUP` is the name of the group. In this prototype, each
-      endpoint is in a single group, and the other endpoints only have
-      access to it if they are in the same group. Names are arbitrary.
+    * `GROUP` is the name of the group.  Only containers in the same group can ping each other, groups are created on-demand so you can choose any name here.
+    * `CID` will be set ot the container ID of the new container. 
 
 You can attach to the container created above using
-* `docker attach $C`
+* `docker attach $CID`
 
 Hit enter a few times to get a prompt. To get back out of the container and leave it running, remember to use `Ctrl-P,Q` rather than `exit`.
 
 So, go ahead and start a couple of containers on each host.
-* On core-01
-   * `A=$(sudo ./calico run 192.168.1.1 --host=172.17.8.101 --master_ip=172.17.8.101 --group=A_GROUP -- -ti  ubuntu)`
-   * `B=$(sudo ./calico run 192.168.1.2 --host=172.17.8.101 --master_ip=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
+* On core-01 (Note: the `--master_ip` parameter is not required on the master itself)
+   * `A=$(sudo ./calico run 192.168.1.1 --host=172.17.8.101 --group=A_GROUP -- -ti  ubuntu)`
+   * `B=$(sudo ./calico run 192.168.1.2 --host=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
 * On core-02
    * `C=$(sudo ./calico run 192.168.1.3 --host=172.17.8.102 --master_ip=172.17.8.101 --group=C_GROUP -- -ti  ubuntu)`
    * `D=$(sudo ./calico run 192.168.1.4 --host=172.17.8.102 --master_ip=172.17.8.101 --group=SHARED_GROUP -- -ti  ubuntu)`
