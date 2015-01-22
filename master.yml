@@ -1,12 +1,3 @@
-bird:
-    build: bird
-    volumes:
-     - config:/config
-    net: "host"
-    privileged: true
-    restart: "always"
-    command:  bird -s bird.ctl -d -c /config/bird.conf
-
 pluginnetwork:
     build: plugin 
     volumes:
@@ -36,14 +27,4 @@ aclmanager:
     privileged: true
     restart: "always"
     command: calico-acl-manager --config-file=/config/acl_manager.cfg
-
-felix:
-    build: felix
-    volumes:
-     - config:/config
-    net: "host"
-    privileged: true
-    restart: "always"
-    command: calico-felix --config-file=/config/felix.cfg
-
 

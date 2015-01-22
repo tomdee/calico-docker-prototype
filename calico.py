@@ -2,23 +2,21 @@
 """Calico..
 
 Usage:
-  calico launch --host=<IP> [--master_ip=<IP>] [--peer=<IP>...]
-  calico run <IP> --host=<IP> [--master_ip=<IP>] --group=<GROUP> [--] <docker-options> ...
-  calico status [--master]
+  calico master [--peer=<ADDRESS>...]
+  calico launch --master=<ADDRESS> [--peer=<ADDRESS>...]
+  calico run <IP> --master=<ADDRESS> [--group=<GROUP>] [--] <docker-options> ...
+  calico status
   calico reset [--delete-images]
   calico version
 
 
 Options:
- --host=<IP>  Set to the IP of the current running machine.
- --master     Set this flag when running on the master node.
- --peer=<IP>  The IP of other compute node. Can be specified multiple times.
- --group=<GROUP>  The group to place the container in. Communication is only possible
-                  with containers in the same group.
-  --master_ip=<IP>  The IP address of the master node.
- <IP>         The IP to assign to the container.
-
+ --peer=<ADDRESS>    The address of other compute node. Can be specified multiple times.
+ --group=<GROUP>     The group to place the container in [default: DEFAULT]
+ --master=<ADDRESS>  The address of the master node.
+ <IP>                The IP to assign to the container.
 """
+#   calico show me my containers and their groups and IPs.
 #   calico ps
 #   calico start
 #   calico stop
@@ -45,6 +43,10 @@ Options:
 from docopt import docopt
 from subprocess import call, check_output, check_call, CalledProcessError
 from string import Template
+import socket
+
+HOSTNAME = socket.gethostname()
+
 BIRD_TEMPLATE = Template("""router id $ip;
 #log "/var/log/bird/bird.log" all;
 
@@ -149,69 +151,56 @@ def validate_arguments(arguments):
     # print(arguments)
     return True
 
-def configure_bird(ip, peers):
-    # Config shouldn't live here. Bird config should live with bird and another process in the
+def configure_bird(peers):
+    # TODO Config shouldn't live here. Bird config should live with bird and another process in the
     # bird container (which should process felix.txt)
     neighbours = ""
     for peer in peers:
-        neighbours += "  neighbor %s as 64511;\n" % peer
+        neighbours += "  neighbor %s as 64511;\n" % socket.gethostbyname(peer)
+    ip = socket.gethostbyname(HOSTNAME)
 
     bird_config = BIRD_TEMPLATE.substitute(ip=ip, neighbours=neighbours)
     with open('config/bird.conf', 'w') as f:
         f.write(bird_config)
 
-def configure_felix(ip, master_ip, peers):
-    our_name = ip.replace('.', '_')
-
-    peer_config = ""
-
-    for peer in peers:
-        peer_name = peer.replace('.', '_')
-        peer_config += "[felix {host}]\nip={ip}\nhost={host}\n\n".format(host=peer_name, ip=peer)
-
-    plugin_config = PLUGIN_TEMPLATE.substitute(ip=ip, name=our_name, peers=peer_config)
-    with open('config/data/felix.txt', 'w') as f:
-        f.write(plugin_config)
-
-    felix_config = FELIX_TEMPLATE.substitute(ip=master_ip, hostname=our_name)
+def configure_felix(master_ip):
+    felix_config = FELIX_TEMPLATE.substitute(ip=master_ip, hostname=HOSTNAME)
     with open('config/felix.cfg', 'w') as f:
         f.write(felix_config)
 
-    aclmanager_config = ACL_TEMPLATE.substitute(ip=ip)
+def configure_master_components(peers):
+    peer_config = ""
+
+    for peer in peers:
+        peer_config += "[felix {name}]\nip={address}\nhost={name}\n\n".format(name=peer,
+                                                                         address=peer)
+
+    # We need our name and address and name and address for all peers
+    plugin_config = PLUGIN_TEMPLATE.substitute(ip=HOSTNAME, name=HOSTNAME, peers=peer_config)
+    with open('config/data/felix.txt', 'w') as f:
+        f.write(plugin_config)
+
+    # ACL manager just need address of plugin manager
+    aclmanager_config = ACL_TEMPLATE.substitute(ip=HOSTNAME)
     with open('config/acl_manager.cfg', 'w') as f:
         f.write(aclmanager_config)
 
 
-def launch(ip, master_ip, peers):
+def launch(master, peers):
     call("mkdir -p config/data", shell=True)
     call("modprobe ip6_tables", shell=True)
     call("modprobe xt_set", shell=True)
 
-    plugin_ip = master_ip
-    if not plugin_ip:
-        plugin_ip = ip
+    configure_bird(peers)
+    configure_felix(master)
 
-    configure_bird(ip, peers)
-    configure_felix(ip, plugin_ip, peers)
+    call("./fig -f node.yml up -d", shell=True)
 
-    if master_ip:
-        call("./fig -f node.yml up -d", shell=True)
-    else:
-        call("./fig -f master.yml up -d", shell=True)
+def status():
+    call("docker ps", shell=True)
 
-
-def status(master):
-    if master:
-        call("./fig -f master.yml ps", shell=True)
-    else:
-        call("./fig -f node.yml ps", shell=True)
-    #And maybe tail the "calico" log(s)
-
-
-def run(ip, host, group, master_ip, docker_options):
+def run(ip, group, master, docker_options):
     # TODO need to tidy up after all this messy networking...
-    name = ip.replace('.', '_')
-    host = host.replace('.', '_')
     docker_command = 'docker run -d --net=none %s' % docker_options
     cid = check_output(docker_command, shell=True).strip()
     #Important to print this, since that's what docker run does when running a detached container.
@@ -245,18 +234,13 @@ ip=%s
 mac=%s
 host=%s
 group=%s
-    """ % (name, cid, ip, mac, host, group)
+""" % (HOSTNAME, cid, ip, mac, HOSTNAME, group)
 
-    if master_ip:
-        #copy the file to master ip
-        command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' {host} 'cat " \
-                  ">/home/core/calico-docker-prototype/config/data/{" \
-        "filename}.txt'".format(config=base_config, host=master_ip, filename=name)
-        check_call(command, shell=True)
-
-    else:
-        with open('config/data/%s.txt' % name, 'w') as f:
-            f.write(base_config)
+    #copy the file to master
+    command = "echo '{config}' | ssh -o 'StrictHostKeyChecking no' {host} 'cat " \
+              ">/home/core/calico-docker-prototype/config/data/{" \
+    "filename}.txt'".format(config=base_config, host=master, filename=HOSTNAME)
+    check_call(command, shell=True)
 
 
 def reset(delete_images):
@@ -289,7 +273,13 @@ def reset(delete_images):
 
 
 def version():
+    #TODO call a fig build here too.
     call('docker run --rm  -ti calicodockerprototype_felix  apt-cache policy calico-felix', shell=True)
+
+def master(peers):
+    call("mkdir -p config/data", shell=True)
+    configure_master_components(peers)
+    call("./fig -f master.yml up -d", shell=True)
 
 if __name__ == '__main__':
     import os
@@ -298,13 +288,14 @@ if __name__ == '__main__':
     else:
         arguments = docopt(__doc__)
         if validate_arguments(arguments):
+            if arguments["master"]:
+                master(arguments["--peer"])
             if arguments["launch"]:
-                launch(arguments["--host"], arguments['--master_ip'], arguments["--peer"])
+                launch(arguments["--master"], arguments["--peer"])
             if arguments["run"]:
                 run(arguments['<IP>'],
-                    arguments['--host'],
                     arguments['--group'],
-                    arguments['--master_ip'],
+                    arguments['--master'],
                     ' '.join(arguments['<docker-options>']))
             if arguments["status"]:
                 status(arguments["--master"])
