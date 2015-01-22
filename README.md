@@ -117,4 +117,4 @@ When an endpoint is added, the flow of events is as follows.
 
 ## How do I install it?
 
-There are two flavours of prototype, one for a Google Compute Engine environment (which relies both on having an L3 routed network and also on certain GCE commands), and one for a more general environment using an L2 routed network without GCE specific commands (such as a simple test environment where the compute servers are standard VMs). The documentation files are here for the [GCE prototype](GCEPrototype.md), and here for the [L2 routed prototype](L2RoutedPrototype.md).
+There are two flavours of prototype, one for a Google Compute Engine environment (which relies both on having an L3 routed network and also on certain GCE commands), and one for a more general environment using an L2 routed network without GCE specific commands (such as a simple test environment where the compute servers are standard VMs). The documentation files are here for the [GCE prototype](docs/GCEPrototype.md), and here for the [L2 routed prototype](docs/L2RoutedPrototype.md).
